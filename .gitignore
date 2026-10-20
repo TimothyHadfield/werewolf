@@ -1,0 +1,4 @@
+tools/out/
+tools/log-*.txt
+.claude/
+node_modules/
