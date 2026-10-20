@@ -368,8 +368,11 @@
       info = '<p class="role-title ' + team(p.role) + '">' + esc(RN(p.role)) + '</p><p class="role-help">' + esc(roleHelp(p.role, g)) +
         (p.role === "wolf" ? "<br><b>" + (partners.length ? "Your pack: " + partners.join(", ") : "You hunt alone.") + "</b>" : "") + "</p>";
     }
-    const main = '<div class="deal"><div class="who">Pass the phone to<b>' + esc(p.name) + "</b></div>" +
-      '<button class="flip' + (open ? " open" : "") + '" data-act="flip" aria-label="Show my card"><span class="flip-in"><span class="face back">' + art(null, 220) + '</span><span class="face front">' + (open ? art(p.role, 220) : "") + "</span></span></button>" +
+    // The role deck: a real stack that gets thinner with every card dealt.
+    const left = g.players.length - g.revealIdx - 1;
+    const main = '<div class="deal tbl-surface tbl-wood-dark"><div class="ww-deck" aria-label="' + left + ' cards left">' + deckHtml(left) + "</div>" +
+      '<div class="who">Pass the phone to<b>' + esc(p.name) + "</b></div>" +
+      '<button class="flip' + (open ? " open" : "") + '" data-act="flip" aria-label="Show my card"><span class="flip-in">' + (open ? '<span class="face front">' + art(p.role, 220) + "</span>" : '<span class="face back">' + art(null, 220) + "</span>") + "</span></button>" +
       info + '<button class="btn ' + (open ? "primary" : "ghost") + ' big" style="min-width:220px" data-act="dealNext" ' + (open ? "" : "disabled") + ">" + (g.revealIdx === g.players.length - 1 ? "Hide · done" : "Hide · pass on") + "</button>" +
       '<div class="dots">' + dots + "</div></div>";
     return gameShell(g, "Deal", (g.revealIdx + 1) + " of " + g.players.length, main, { noTabs: true, noSide: true });
@@ -385,11 +388,133 @@
   }
   function renderReady(g) {
     const first = g.opts.dayFirst ? "day" : "night";
-    const main = '<div class="deal">' + (first === "night" ? moonArt("wait-moon") : IC.sun.replace('class="sun"', 'class="wait-moon"')) +
-      '<p class="role-title village" style="color:var(--text)">Everyone has a card</p><p class="role-help">' + (first === "night" ? "Put the phone in the middle. The narrator will guide the night." : "The game opens with a day of talk.") + "</p>" +
-      '<button class="btn primary big" style="min-width:240px" data-act="begin">' + (first === "night" ? "Start the night" : "Start the day") + "</button></div>";
+    const center = (first === "night" ? moonArt("wait-moon") : IC.sun.replace('class="sun"', 'class="wait-moon"')) +
+      '<p class="role-title village" style="color:var(--text)">Everyone has a card</p><p class="role-help">' + (first === "night" ? "Put the phone in the middle. The narrator will guide the night." : "The game opens with a day of talk.") + "</p>";
+    const seated = SEATED() ? ME() : null;
+    const main = playScreen(ring(g, [], { me: seated }, center), "", '<button class="btn primary big" data-act="begin">' + (first === "night" ? "Start the night" : "Start the day") + "</button>");
     return gameShell(g, "Ready", "", main, { noTabs: true, noSide: true });
   }
+
+  // ------------------------------------------------------------ the table
+  // Everyone sits round a real table with their role card in front of them: face down while
+  // alive, turned face up when it is shown. Your seat (vs computer / online) is at the bottom,
+  // your card peeked face up. The middle of the table holds the narrator's news.
+  const turned = new Set(); // "seed:id": cards already turned face up on screen, so each turns once
+  function cardHtml(role, w, cls) {
+    return '<span class="ww-pc tbl-card' + (cls ? " " + cls : "") + '">' + art(role, w) + "</span>";
+  }
+  function seatCard(g, p, faceUp) {
+    const key = g.seed + ":" + p.id;
+    let turnNow = false;
+    if (faceUp && !turned.has(key)) { turned.add(key); turnNow = true; }
+    // One face is shown at a time (WebKit ignores backface hiding under filters); a newly shown
+    // card starts face down and turns over in 3-D after it is drawn (turnCard).
+    const front = faceUp ? '<span class="tbl-face ww-face' + (turnNow ? " ww-hide" : "") + '">' + art(p.role, 90) + "</span>" : "";
+    const back = !faceUp || turnNow ? '<span class="tbl-face ww-back">' + art(null, 90) + "</span>" : "";
+    return '<span class="ww-card tbl-card' + (turnNow ? " ww-turn" : "") + '">' + front + back + "</span>";
+  }
+  // Turn a card over: rotate to edge-on, swap to the face, rotate back down. Transform only.
+  function turnCard(el) {
+    const swap = () => { const b = el.querySelector(".ww-back"), f = el.querySelector(".ww-face"); if (b) b.remove(); if (f) f.classList.remove("ww-hide"); };
+    if (!el.animate || !(window.TABLE ? window.TABLE.animOn() : true)) { swap(); return; }
+    const sp = FX && FX.settings && FX.settings.animSpeed === "fast" ? 0.55 : 1;
+    const d = Math.max(60, 190 * sp);
+    const base = "perspective(400px) ";
+    const a = el.animate([{ transform: base + "rotateY(0deg)" }, { transform: base + "rotateY(90deg) scale(1.06)" }], { duration: d, easing: "ease-in" });
+    let b = null;
+    a.onfinish = () => { swap(); b = el.animate([{ transform: base + "rotateY(-90deg) scale(1.06)" }, { transform: base + "rotateY(0deg)" }], { duration: d, easing: "ease-out" }); };
+    a.oncancel = swap;
+    // Never leave a card standing on its edge (a stalled or background tab): settle it flat.
+    setTimeout(() => { try { a.cancel(); if (b) b.cancel(); } catch (e) {} swap(); }, d * 2 + 400);
+  }
+  function deckHtml(n) {
+    if (!n) return '<span class="ww-dcard tbl-spot"></span>';
+    const st = window.TABLE ? window.TABLE.stackShadow(n, { perCard: 0.6, max: 12 }) : { thickness: 0, shadow: "" };
+    return '<span class="ww-dcard ww-pc tbl-card" style="box-shadow:' + st.shadow + ";transform:translateY(" + -st.thickness + 'px)">' + art(null, 60) + '</span><span class="tbl-badge">' + n + "</span>";
+  }
+  function ring(g, ids, opts, center) {
+    opts = opts || {};
+    const n = g.players.length;
+    const start = opts.me != null ? opts.me : 0;
+    const size = n <= 8 ? "s-l" : n <= 12 ? "s-m" : "s-s";
+    const seats = g.players.map((p) => {
+      const pos = (p.id - start + n) % n; // 0 = the bottom edge, then round to your left
+      const can = ids.indexOf(p.id) >= 0;
+      const me = opts.me === p.id;
+      const faceUp = !!(opts.allUp || me || (!p.alive && p.revealed));
+      const sub = opts.sub ? opts.sub(p) : "";
+      let odd = "";
+      if (opts.odds && opts.odds[p.id] != null && p.alive) {
+        const o = opts.odds[p.id];
+        odd = '<span class="odds" style="color:' + wolfColor(o) + '">' + pct(o) + '</span><span class="bar"><i style="width:' + Math.round(o * 100) + "%;background:" + wolfColor(o) + '"></i></span>';
+      }
+      const j = window.TABLE ? window.TABLE.jitter(g.seed + ":seat", p.id, { rot: 5, off: 0 }) : { r: 0 };
+      return '<button class="pbtn ww-seat' + (opts.sel === p.id ? " sel" : "") + (p.alive ? "" : " dead") + (odd ? " has-odds" : "") + (me ? " me" : "") +
+        '" data-act="' + (opts.act || "sel") + '" data-id="' + p.id + '" data-pos="' + pos + '" style="--r:' + j.r + 'deg" ' + (can ? "" : "disabled") + ">" +
+        seatCard(g, p, faceUp) + '<span class="pn tbl-plate">' + esc(p.name) + "</span>" + (sub ? '<span class="ps">' + sub + "</span>" : "") + odd + "</button>";
+    }).join("");
+    return '<div class="ww-table tbl-surface tbl-wood-dark ' + size + (ids.length ? " picking" : "") + (opts.night ? " is-night" : "") + '">' + seats +
+      '<div class="ww-center" data-keep-scroll><div class="ww-cin">' + (center || "") + "</div></div></div>";
+  }
+  function playScreen(table, strip, foot, cls) {
+    return '<div class="day ww-play' + (cls ? " " + cls : "") + '">' + (strip || "") + table + (foot ? '<div class="day-foot">' + foot + "</div>" : "") + "</div>";
+  }
+  // Seats evenly spaced (by distance, not angle) round a rounded-rectangle table edge.
+  function ringPoints(n, rx, ry) {
+    const P = 4, M = 720, t0 = Math.PI / 2;
+    const f = (t) => { const c = Math.cos(t), s = Math.sin(t); return { x: rx * Math.sign(c) * Math.pow(Math.abs(c), 2 / P), y: ry * Math.sign(s) * Math.pow(Math.abs(s), 2 / P) }; };
+    const pts = [], len = [0];
+    for (let k = 0; k <= M; k++) pts.push(f(t0 + (2 * Math.PI * k) / M));
+    for (let k = 1; k <= M; k++) len.push(len[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
+    const out = [];
+    let k = 0;
+    for (let i = 0; i < n; i++) { const want = (len[M] * i) / n; while (k < M && len[k + 1] < want) k++; out.push(pts[k]); }
+    return out;
+  }
+  function layoutTables() {
+    document.querySelectorAll(".ww-table").forEach((t) => {
+      const seats = [...t.querySelectorAll(".ww-seat")];
+      if (!seats.length) return;
+      const W = t.clientWidth, H = t.clientHeight;
+      let sw = 0, sh = 0, mh = 0;
+      seats.forEach((s) => { if (s.classList.contains("me")) mh = s.offsetHeight; else { sw = Math.max(sw, s.offsetWidth); sh = Math.max(sh, s.offsetHeight); } });
+      if (!mh) mh = sh;
+      const pad = 3;
+      const cy = H / 2 + (sh - mh) / 4;
+      const pts = ringPoints(seats.length, Math.max(8, W / 2 - sw / 2 - pad), Math.max(8, H / 2 - (sh + mh) / 4 - pad));
+      seats.forEach((s) => {
+        const p = pts[+s.dataset.pos] || { x: 0, y: 0 };
+        const w = s.offsetWidth, h = s.offsetHeight;
+        const x = Math.max(pad, Math.min(W - w - pad, W / 2 + p.x - w / 2));
+        const y = Math.max(pad, Math.min(H - h - pad, cy + p.y - h / 2));
+        s.style.left = Math.round(x) + "px"; s.style.top = Math.round(y) + "px";
+      });
+      const c = t.querySelector(".ww-center");
+      if (c) { c.style.left = c.style.right = Math.round(sw + 8) + "px"; c.style.top = Math.round(sh + 6) + "px"; c.style.bottom = Math.round(mh + 6) + "px"; }
+    });
+  }
+  // After each draw: lay the seats out, turn newly shown cards with a 3-D flip, deal from the deck.
+  function afterDraw() {
+    layoutTables();
+    const fresh = [...document.querySelectorAll(".ww-turn")];
+    fresh.forEach((el, i) => {
+      el.classList.remove("ww-turn");
+      setTimeout(() => turnCard(el), (60 + i * 70) * Math.max(FAST, 0.2));
+    });
+    const g = ui.view === "game" && ui.mode === "table" ? S.game : null;
+    if (g && g.phase === "reveal" && !ui.dealOpen) {
+      const k = g.seed + ":" + g.revealIdx;
+      if (ui.dealt !== k) {
+        ui.dealt = k;
+        const deck = document.querySelector(".ww-deck .ww-dcard"), card = document.querySelector(".deal .flip");
+        if (window.TABLE && deck && card && window.TABLE.animOn()) {
+          card.style.opacity = "0";
+          window.TABLE.deal(deck, card, { face: cardHtml(null, 60, "ww-ghost"), duration: 380 }).then(() => { card.style.opacity = ""; });
+        }
+      }
+    }
+  }
+  window.addEventListener("resize", () => layoutTables());
 
   // ---- table-mode night
   function narration(step, phase, g) {
@@ -454,11 +579,10 @@
   function renderNight(g) {
     const step = W.currentStep(g);
     const head = '<div class="step-head">' + moonArt() + "<span>Night " + g.nightNo + "</span></div>";
-    let body = "";
-    if (ui.nightStage === "act") body = nightActUI(g, step);
-    else if (ui.nightStage === "wait") body = moonArt("wait-moon") + '<div class="progress"><i></i></div>';
-    else body = moonArt("wait-moon");
-    const main = '<div class="night">' + head + '<div class="say">' + esc(ui.say) + "</div>" + body + "</div>";
+    let a = { center: moonArt("wait-moon"), ids: [], opts: {}, foot: "" };
+    if (ui.nightStage === "act") a = nightActUI(g, step);
+    else if (ui.nightStage === "wait") a.center = moonArt("wait-moon") + '<div class="progress"><i></i></div>';
+    const main = playScreen(ring(g, a.ids, Object.assign({ night: true }, a.opts), head + '<div class="say">' + esc(ui.say) + "</div>" + a.center), "", a.foot, "night");
     return gameShell(g, "Night " + g.nightNo, "eyes closed", main, { noTabs: true, noSide: true, night: true });
   }
   function grid(g, ids, opts) {
@@ -483,9 +607,9 @@
       if (r) {
         const t = g.players[r.target];
         const txt = r.role ? RN(r.role) : r.wolf ? "A " + RN("wolf").toLowerCase() : "Not a " + RN("wolf").toLowerCase();
-        return '<div class="result-card ' + (r.wolf ? "bad" : "good") + '"><span class="muted">' + esc(t.name) + " is</span><b>" + esc(r.role && T() === "mafia" && r.role === "wolf" ? "Mafia" : txt) + '</b></div><div class="actions"><button class="btn primary big" data-act="nightDone">Got it</button></div>';
+        return { center: '<div class="result-card ' + (r.wolf ? "bad" : "good") + '"><span class="muted">' + esc(t.name) + " is</span><b>" + esc(r.role && T() === "mafia" && r.role === "wolf" ? "Mafia" : txt) + "</b></div>", ids: [], opts: {}, foot: '<button class="btn primary big" data-act="nightDone">Got it</button>' };
       }
-      return grid(g, W.validTargets(g, "seer"), { sel: ui.sel }) + '<div class="actions"><button class="btn primary big" data-act="seerCheck" ' + (ui.sel == null ? "disabled" : "") + ">Check</button></div>";
+      return { center: "", ids: W.validTargets(g, "seer"), opts: { sel: ui.sel }, foot: '<button class="btn primary big" data-act="seerCheck" ' + (ui.sel == null ? "disabled" : "") + ">Check</button>" };
     }
     if (step === "witch") {
       const victim = N.wolf != null ? g.players[N.wolf] : null;
@@ -494,13 +618,13 @@
       const pt = poisonOK ? W.validTargets(g, "witch", "poison").filter(() => true) : [];
       let h = '<div class="witch-box"><div class="victim">' + (victim ? "Tonight's victim: <b>" + esc(victim.name) + "</b>" : "No one was attacked.") + "</div>";
       if (victim) h += canHeal || ui.heal ? '<div class="row"><button class="btn ' + (ui.heal ? "warm" : "") + '" data-act="witchHeal">' + (ui.heal ? "✓ Healing " : "Heal ") + esc(victim.name) + "</button></div>" : '<div class="muted" style="text-align:center;font-size:14px">' + (g.mem.healUsed ? "Heal potion used." : "Can't heal now.") + "</div>";
-      if (poisonOK) h += '<p class="label" style="margin:4px 0 0">Poison (once per game)</p>' + grid(g, pt, { sel: ui.poison, act: "poisonSel" });
+      if (poisonOK) h += '<p class="label" style="margin:4px 0 0;justify-content:center">Poison (once per game)</p>';
       else h += '<div class="muted" style="text-align:center;font-size:14px">' + (g.mem.poisonUsed ? "Poison used." : "One potion per night.") + "</div>";
-      return h + '</div><div class="actions"><button class="btn primary big" data-act="witchDone">Done</button></div>';
+      return { center: h + "</div>", ids: pt, opts: { sel: ui.poison, act: "poisonSel" }, foot: '<button class="btn primary big" data-act="witchDone">Done</button>' };
     }
     const ids = W.validTargets(g, step);
     const label = step === "wolf" ? "Kill" : "Protect";
-    return grid(g, ids, { sel: ui.sel }) + '<div class="actions"><button class="btn primary big" data-act="nightPick" ' + (ui.sel == null ? "disabled" : "") + ">" + label + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button></div>";
+    return { center: "", ids, opts: { sel: ui.sel }, foot: '<button class="btn primary big" data-act="nightPick" ' + (ui.sel == null ? "disabled" : "") + ">" + label + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button>" };
   }
 
   function deathLines(g, ids, how) {
@@ -565,39 +689,40 @@
     const hunter = g.pendingHunters[0];
     let main = "";
     let foot = "";
+    let ids = [];
+    let ropts = { odds: od.odds, me: cpu ? seat : undefined, sub: (p) => subFor(g, p, seat) };
     if (hunter != null) {
       const hp = g.players[hunter];
       const yours = !cpu || hunter === seat;
-      main += '<p class="label">' + esc(hp.name) + " the " + esc(RN("hunter")) + " shoots</p>";
+      main += '<p class="label" style="justify-content:center">' + esc(hp.name) + " the " + esc(RN("hunter")) + " shoots</p>";
       if (yours) {
-        main += grid(g, g.players.filter((p) => p.alive).map((p) => p.id), { sel: ui.sel, odds: od.odds });
+        ids = g.players.filter((p) => p.alive).map((p) => p.id); ropts.sel = ui.sel;
         foot = '<button class="btn" data-act="shootAir">Into the air</button><button class="btn warm" data-act="shoot" ' + (ui.sel == null ? "disabled" : "") + ">Shoot" + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button>";
       } else main += '<div class="empty">Waiting for the shot…</div>';
     } else if (g.phase === "day") {
       const claimsHtml = g.claims.length ? '<div class="claims">' + g.claims.map((c, i) => '<div class="claim"><span class="ct"><b>' + esc(g.players[c.by].name) + "</b> says " + esc(g.players[c.target].name) + " is " + (c.wolf ? '<span class="tagw">' + esc(aWolf()) + "</span>" : '<span class="tagg">not ' + esc(aWolf()) + "</span>") + "</span>" + (cpu ? "" : '<button class="x" data-act="unclaim" data-i="' + i + '" aria-label="Remove claim">×</button>') + "</div>").join("") + "</div>" : "";
+      ropts.sel = ui.sel;
       if (cpu) {
         const voted = Object.keys(g.ballots).length;
         const myVote = g.ballots[seat];
-        main += grid(g, me.alive && myVote == null ? g.players.filter((p) => p.alive && p.id !== seat).map((p) => p.id) : [], { sel: ui.sel, odds: od.odds, showDead: true, me: seat, sub: (p) => subFor(g, p, seat) });
+        ids = me.alive && myVote == null ? g.players.filter((p) => p.alive && p.id !== seat).map((p) => p.id) : [];
         main += claimsHtml;
         const pend = pendingOf(g).length;
         if (me.alive && myVote == null) foot = '<button class="btn" data-act="cpuClaim">Claim</button><button class="btn" data-act="cpuSkip">Skip</button><button class="btn warm" data-act="cpuVote" ' + (ui.sel == null ? "disabled" : "") + ">Vote" + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button>";
         else foot = '<div class="muted" style="flex:1;text-align:center;padding:10px">' + (me.alive ? "You voted. " : "") + "Votes in: " + (alive - pend) + " of " + alive + "</div>";
         void voted;
       } else {
-        main += grid(g, g.players.filter((p) => p.alive).map((p) => p.id), { sel: ui.sel, odds: od.odds, showDead: true, sub: (p) => subFor(g, p, null) });
+        ids = g.players.filter((p) => p.alive).map((p) => p.id);
         main += claimsHtml;
         foot = '<button class="btn" data-act="claim">' + esc(RN("seer")) + ' claim</button><button class="btn" data-act="noVote">No one out</button><button class="btn warm" data-act="vote" ' + (ui.sel == null ? "disabled" : "") + ">Vote out" + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button>";
       }
     } else if (g.phase === "morning") {
-      main += grid(g, [], { odds: od.odds, showDead: true, me: seat, sub: (p) => subFor(g, p, seat) });
       foot = cpu ? '<div class="muted" style="flex:1;text-align:center;padding:10px">Morning…</div>' : '<button class="btn primary big" data-act="toDay">Start the day</button>';
     } else if (g.phase === "dusk") {
-      main += grid(g, [], { odds: od.odds, showDead: true, me: seat, sub: (p) => subFor(g, p, seat) });
       main += voteBreakdown(g);
       foot = '<button class="btn primary big" data-act="toNight">' + moonInline() + " Start night " + (g.nightNo + 1) + "</button>";
     }
-    const body = '<div class="day"><div class="day-body" data-keep-scroll>' + news + stats + main + "</div>" + (foot ? '<div class="day-foot">' + foot + "</div>" : "") + "</div>";
+    const body = playScreen(ring(g, ids, ropts, news + main), stats, foot);
     const title = g.phase === "dusk" ? "Evening " + g.day : "Day " + Math.max(1, g.day);
     return gameShell(g, title, ui.mode === "online" ? "Room " + esc(ui.osnap.code || "") : cpu ? levelName(S.settings.level) + " computers" : "", body);
   }
@@ -747,10 +872,11 @@
   // ---- game over
   function renderOver(g) {
     const win = g.winner;
-    const cards = g.players.map((p) => '<div class="mini-card' + (p.alive ? "" : " dead") + '"><div class="mc-art">' + art(p.role, 92) + '</div><div class="mc-n">' + esc(p.name) + (SEATED() && p.id === ME() ? " (you)" : "") + '</div><div class="mc-r">' + esc(RN(p.role)) + (p.alive ? "" : " · dead") + "</div></div>").join("");
-    const main = '<div class="pad scroll" style="flex:1"><div class="over-head ' + win + '">' + (win === "village" ? IC.sun.replace('class="sun"', 'width="56" height="56"') : moonArt()) + "<h2>" + esc(win === "village" ? TH().village : TH().wolves) + ' win</h2><p class="muted">' + (SEATED() ? (W.TEAM[g.players[ME()].role] === (win === "village" ? "village" : "wolves") ? "You won." : "You lost.") : "Day " + Math.max(1, g.day)) + "</p></div>" +
-      '<div class="cards">' + cards + '</div><div class="row" style="margin:16px 0"><button class="btn" data-act="home">Menu</button>' + (ui.mode === "online" ? '<button class="btn primary" data-act="leaveRoom">Leave room</button>' : '<button class="btn primary" data-act="again">Play again</button>') + "</div>" +
-      (SEATED() ? voteRecord(g) : "") + "</div>";
+    // Every card round the table is turned face up, like the end of a real game.
+    const center = '<div class="over-head ' + win + '">' + (win === "village" ? IC.sun.replace('class="sun"', 'width="56" height="56"') : moonArt()) + "<h2>" + esc(win === "village" ? TH().village : TH().wolves) + ' win</h2><p class="muted">' + (SEATED() ? (W.TEAM[g.players[ME()].role] === (win === "village" ? "village" : "wolves") ? "You won." : "You lost.") : "Day " + Math.max(1, g.day)) + "</p></div>" +
+      (SEATED() ? voteRecord(g) : "");
+    const foot = '<button class="btn" data-act="home">Menu</button>' + (ui.mode === "online" ? '<button class="btn primary" data-act="leaveRoom">Leave room</button>' : '<button class="btn primary" data-act="again">Play again</button>');
+    const main = playScreen(ring(g, [], { allUp: true, me: SEATED() ? ME() : undefined, sub: (p) => esc(RN(p.role)) + (p.alive || g.players.length > 12 ? "" : " · dead") }, center), "", foot, "over");
     return gameShell(g, "Game over", "", main);
   }
 
@@ -760,15 +886,17 @@
     const ms = ME();
     const me = g.players[ms];
     const mine = me.alive && me.role === step && pendingOf(g).indexOf(ms) >= 0;
-    let body;
+    let a;
     if (mine) {
-      body = '<div class="say">' + esc(narration(step, "wake", g)) + "</div>" + cpuActUI(g, step);
+      a = cpuActUI(g, step);
+      a.center = '<div class="say">' + esc(narration(step, "wake", g)) + "</div>" + a.center;
     } else {
       const awake = ui.mode !== "online" && W.stepIsIdle(g, step) ? "…" : RN(step, step === "wolf") + (step === "wolf" ? " are" : " is") + " awake";
       const extra = me.alive && me.role === "wolf" && step === "wolf" ? pendingWolfInfo(g) : "";
-      body = '<div class="say">' + esc(me.alive ? "Eyes closed." : "You are dead — watching.") + "</div>" + moonArt("wait-moon") + '<div class="step-head"><span>' + esc(awake) + "</span></div>" + extra;
+      a = { center: '<div class="say">' + esc(me.alive ? "Eyes closed." : "You are dead — watching.") + "</div>" + moonArt("wait-moon") + '<div class="step-head"><span>' + esc(awake) + "</span></div>" + extra, ids: [], opts: {}, foot: "" };
     }
-    const main = '<div class="night">' + '<div class="step-head">' + moonArt() + "<span>Night " + g.nightNo + " · you are " + esc(aRole(me.role)) + "</span></div>" + body + "</div>";
+    const head = '<div class="step-head">' + moonArt() + "<span>Night " + g.nightNo + " · you are " + esc(aRole(me.role)) + "</span></div>";
+    const main = playScreen(ring(g, a.ids, Object.assign({ night: true, me: ms, sub: (p) => subFor(g, p, ms) }, a.opts), head + a.center), "", a.foot, "night");
     return gameShell(g, "Night " + g.nightNo, "", main, { night: true });
   }
   function pendingWolfInfo(g) {
@@ -784,24 +912,24 @@
       if (r) {
         const t = g.players[r.target];
         const txt = r.role ? RN(r.role) : r.wolf ? aWolf() : "not " + aWolf();
-        return '<div class="result-card ' + (r.wolf ? "bad" : "good") + '"><span class="muted">' + esc(t.name) + " is</span><b>" + esc(txt) + '</b></div><div class="actions"><button class="btn primary big" data-act="cpuDone">Close eyes</button></div>';
+        return { center: '<div class="result-card ' + (r.wolf ? "bad" : "good") + '"><span class="muted">' + esc(t.name) + " is</span><b>" + esc(txt) + "</b></div>", ids: [], opts: {}, foot: '<button class="btn primary big" data-act="cpuDone">Close eyes</button>' };
       }
-      return grid(g, W.validTargets(g, "seer"), { sel: ui.sel, sub: (p) => subFor(g, p, ME()) }) + '<div class="actions"><button class="btn" style="flex:0 0 auto" data-act="hint">Hint</button><button class="btn primary big" data-act="cpuPick" ' + (ui.sel == null ? "disabled" : "") + ">Check</button></div>";
+      return { center: "", ids: W.validTargets(g, "seer"), opts: { sel: ui.sel }, foot: '<button class="btn" style="flex:0 0 auto" data-act="hint">Hint</button><button class="btn primary big" data-act="cpuPick" ' + (ui.sel == null ? "disabled" : "") + ">Check</button>" };
     }
     if (step === "witch") {
       const victim = N.wolf != null ? g.players[N.wolf] : null;
       if (!N.picked.heal) {
-        return '<div class="witch-box"><div class="victim">' + (victim ? "Tonight's victim: <b>" + esc(victim.name) + "</b>" : "No one was attacked.") + '</div></div><div class="actions"><button class="btn" data-act="cpuHeal" data-v="0">Don\'t heal</button><button class="btn warm" data-act="cpuHeal" data-v="1" ' + (W.canHeal(g) ? "" : "disabled") + ">Heal</button></div>";
+        return { center: '<div class="witch-box"><div class="victim">' + (victim ? "Tonight's victim: <b>" + esc(victim.name) + "</b>" : "No one was attacked.") + "</div></div>", ids: [], opts: {}, foot: '<button class="btn" data-act="cpuHeal" data-v="0">Don\'t heal</button><button class="btn warm" data-act="cpuHeal" data-v="1" ' + (W.canHeal(g) ? "" : "disabled") + ">Heal</button>" };
       }
       if (!N.picked.poison) {
         const pt = W.validTargets(g, "witch", "poison");
-        return '<p class="label">Poison someone?</p>' + grid(g, pt, { sel: ui.sel, sub: (p) => subFor(g, p, ME()) }) + '<div class="actions"><button class="btn" data-act="cpuPoison" data-v="none">No poison</button><button class="btn warm" data-act="cpuPoison" ' + (ui.sel == null ? "disabled" : "") + ">Poison</button></div>";
+        return { center: '<p class="label" style="justify-content:center">Poison someone?</p>', ids: pt, opts: { sel: ui.sel }, foot: '<button class="btn" data-act="cpuPoison" data-v="none">No poison</button><button class="btn warm" data-act="cpuPoison" ' + (ui.sel == null ? "disabled" : "") + ">Poison</button>" };
       }
-      return '<div class="actions"><button class="btn primary big" data-act="cpuDone">Close eyes</button></div>';
+      return { center: "", ids: [], opts: {}, foot: '<button class="btn primary big" data-act="cpuDone">Close eyes</button>' };
     }
     const ids = W.validTargets(g, step);
     const extra = step === "wolf" ? pendingWolfInfo(g) : "";
-    return extra + grid(g, ids, { sel: ui.sel, sub: (p) => subFor(g, p, ME()) }) + '<div class="actions"><button class="btn primary big" data-act="cpuPick" ' + (ui.sel == null ? "disabled" : "") + ">" + (step === "wolf" ? "Kill" : "Protect") + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button></div>";
+    return { center: extra, ids, opts: { sel: ui.sel }, foot: '<button class="btn primary big" data-act="cpuPick" ' + (ui.sel == null ? "disabled" : "") + ">" + (step === "wolf" ? "Kill" : "Protect") + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button>" };
   }
 
   // ------------------------------------------------------------ cpu driver
@@ -1084,7 +1212,13 @@
       case "startGame": if (ui.setupMode === "cpu") startCpu(); else if (ui.setupMode === "online") createRoom(); else startTable(); return;
 
       // --- table deal
-      case "flip": if (!ui.dealOpen) { ui.dealOpen = true; el.classList.add("open"); sfx("cardFlip"); setTimeout(render, 420); } return;
+      case "flip": if (!ui.dealOpen) {
+        ui.dealOpen = true; el.classList.add("open"); sfx("cardFlip");
+        // One face at a time (WebKit draws hidden back faces): swap to the face once the card is edge-on.
+        const fg = G(), fr = fg && fg.players[fg.revealIdx] ? fg.players[fg.revealIdx].role : null;
+        setTimeout(() => { const fi = el.querySelector(".flip-in"), bk = fi && fi.querySelector(".back"); if (bk && fr) { bk.remove(); fi.insertAdjacentHTML("beforeend", '<span class="face front">' + art(fr, 220) + "</span>"); } }, 110);
+        setTimeout(render, 420);
+      } return;
       case "dealNext": ui.dealOpen = false; act({ type: "seen" }, { noUndo: true }); render(); return;
       case "begin": {
         window.Narrator.unlock();
@@ -1217,6 +1351,7 @@
   render = function () {
     const fxEv = fxDiff();
     _render();
+    try { afterDraw(); } catch (e) { /* the table look never breaks the game */ }
     if (fxEv && fxEv.length) { try { window.WWFX.fire(fxEv); } catch (e) { /* effects never break the game */ } }
     if (ui.view === "game" && ui.mode === "table" && S.game && S.game.phase === "night" && ui.nightKey !== nightKey(S.game)) enterNightStep();
   };

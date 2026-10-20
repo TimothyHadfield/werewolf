@@ -1,1 +1,1 @@
-window.WW_BUILD = "build 2026-10-20.1450";
+window.WW_BUILD = "build 2026-10-20.1620";

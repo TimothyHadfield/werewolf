@@ -342,6 +342,139 @@ input[type=text]:focus { outline: none; border-color: var(--accent); }
 .online-pick .names { grid-template-columns: 1fr; }
 .online-pick .menu-item { width: 100%; }
 
+/* ---------- the real table (css/table.css kit + Werewolf seats) ----------
+   Everyone sits round a wooden table, their role card (poker size, 63 x 88) in front of them. */
+.ww-pc { --card-w: 60px; width: var(--card-w); --ratio: 63 / 88; background: #0d0f17; padding: 5%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.ww-pc svg, .ww-card .tbl-face svg { width: 100%; height: 100%; display: block; }
+.ww-play { position: relative; }
+.ww-play .stat-line { flex: 0 0 auto; padding: 4px 14px; gap: 2px 12px; font-size: 12px; min-height: 30px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.ww-table { --muted: #cdbf9f; --cw: 40px; --sw: 80px; flex: 1 1 auto; min-height: 0; overflow: hidden; box-shadow: inset 0 0 0 1px #2b1a0c, inset 0 0 26px rgba(0,0,0,.55); }
+.ww-table.s-m { --cw: 36px; --sw: 72px; }
+.ww-table.s-s { --cw: 22px; --sw: 62px; }
+.pbtn.ww-seat { position: absolute; left: 0; top: 0; z-index: 2; width: var(--sw); min-height: 44px; padding: 3px 2px 4px; border: 0; border-radius: 10px; background: transparent; box-shadow: none; align-items: center; justify-content: flex-start; gap: 3px; text-align: center; color: #f3efe4; }
+.pbtn.ww-seat:not(:disabled):hover { background: rgba(255,240,200,.07); }
+.pbtn.ww-seat.dead, .pbtn.ww-seat:disabled { opacity: 1; }
+.ww-table.picking .pbtn.ww-seat:disabled:not(.dead):not(.me) { opacity: .6; }
+.ww-card { --card-w: var(--cw); width: var(--cw); rotate: var(--r, 0deg); transition: translate .2s ease, box-shadow .2s ease; display: block; background: #0d0f17; border-color: rgba(0,0,0,.6); }
+.ww-card .tbl-face { background: #0d0f17; padding: 5%; border: 0; box-shadow: none; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.ww-card .tbl-face::after { display: none; }
+.ww-card .ww-hide { display: none; }
+.ww-seat .pn.tbl-plate { max-width: 100%; font-size: 12px; line-height: 17px; padding: 1px 6px; }
+.ww-seat .ps { max-width: 100%; font-size: 11px; line-height: 1.2; color: #e6dcc6; text-shadow: 0 1px 2px #000; }
+.ww-seat .ps .tagw { color: #ff8f86; }
+.ww-seat .ps .tagg { color: #7fe0ae; }
+.pbtn.ww-seat.has-odds { padding-bottom: 4px; }
+.pbtn.ww-seat .odds, .pbtn.ww-seat.has-odds .odds { position: static; font-size: 13px; line-height: 1; padding: 2px 6px 1px; border-radius: 7px; background: rgba(12,8,4,.62); }
+.pbtn.ww-seat .bar { position: static; display: block; width: 70%; height: 3px; margin-top: -1px; background: rgba(0,0,0,.4); }
+.ww-seat.sel .ww-card { translate: 0 -6px; }
+.ww-seat.sel .ww-card { box-shadow: 0 0 0 2px var(--warm), 0 10px 18px rgba(0,0,0,.55); }
+.ww-seat.sel .tbl-plate { border-color: #f0c35a; box-shadow: 0 0 0 2px rgba(240,195,90,.5), 0 2px 4px rgba(0,0,0,.4); }
+.ww-seat.dead .ww-card { filter: grayscale(.55) brightness(.72); }
+.ww-seat.dead .tbl-plate { color: #a99c84; text-decoration: line-through; text-decoration-color: rgba(255,255,255,.4); }
+.ww-seat.me { width: calc(var(--sw) * 1.15); }
+.ww-seat.me .ww-card { --card-w: calc(var(--cw) * 1.4); width: calc(var(--cw) * 1.4); }
+.ww-seat.me .tbl-plate { border-color: #c79a4a; }
+/* 13-20 players on a phone: smaller cards, the odds colour alone (no bar), one line under each name */
+.ww-table.s-s .ww-seat .pn.tbl-plate { font-size: 10px; line-height: 13px; padding: 0 4px; }
+.ww-table.s-s .pbtn.ww-seat .odds { font-size: 11px; line-height: 12px; padding: 0 4px; }
+.ww-table.s-s .pbtn.ww-seat .bar { display: none; }
+.ww-table.s-s .ww-seat .ps { font-size: 10px; line-height: 12px; }
+.ww-table.s-s .pbtn.ww-seat { gap: 1px; padding: 1px; }
+/* ...and the odds / role sit on the lower edge of the card, like a marker laid on it */
+.ww-table.s-s .pbtn.ww-seat .odds, .ww-table.s-s .ww-seat .ps { position: absolute; z-index: 1; left: 50%; top: calc(1px + var(--cw) * 88 / 63 - 11px); transform: translateX(-50%); white-space: nowrap; }
+.ww-table.s-s .ww-seat .ps { background: rgba(12,8,4,.72); border-radius: 6px; padding: 0 4px; max-width: none; }
+/* the middle of the table: the narrator's news, claims and the night line */
+.ww-center { position: absolute; z-index: 1; left: 90px; right: 90px; top: 90px; bottom: 90px; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
+.ww-cin { margin: auto 0; display: flex; flex-direction: column; gap: 8px; align-items: stretch; text-align: center; }
+.ww-center .news { background: linear-gradient(180deg, #f3ead3, #e6d9b8); color: #2b1d10; border: 1px solid #b9a77f; border-radius: 4px; padding: 8px 10px; gap: 8px; text-align: left; rotate: -1deg; box-shadow: 0 2px 3px rgba(0,0,0,.35), 0 8px 16px rgba(0,0,0,.3); }
+.ww-center .news .nt { font-size: 15px; }
+.ww-center .news .nt small { color: #5e4c30; }
+.ww-center .news svg.sun { width: 28px; height: 28px; }
+.ww-center .claim { background: #f1e8d0; color: #2b1d10; border: 1px solid #b9a77f; border-radius: 4px; text-align: left; font-size: 13px; box-shadow: 0 2px 4px rgba(0,0,0,.35); }
+.ww-center .claim:nth-child(even) { rotate: .8deg; }
+.ww-center .claim:nth-child(odd) { rotate: -.6deg; }
+.ww-center .claim .tagw { color: #b3261e; }
+.ww-center .claim .tagg { color: #1d7a48; }
+.ww-center .claim .x { color: #6d5a3a; }
+.ww-center .result-card { background: linear-gradient(180deg, #f3ead3, #e6d9b8); color: #2b1d10; border-color: #b9a77f; border-radius: 4px; box-shadow: 0 2px 3px rgba(0,0,0,.35), 0 10px 20px rgba(0,0,0,.35); }
+.ww-center .result-card .muted { color: #5e4c30; }
+.ww-center .result-card.bad b { color: #b3261e; }
+.ww-center .result-card.good b { color: #1d7a48; }
+.ww-center .say { font-size: clamp(16px, 4.4vw, 26px); min-height: 0; padding: 0; color: #f6f0e0; text-shadow: 0 1px 3px #000; }
+.ww-center .wait-moon { width: 72px; height: 72px; margin: 4px auto; }
+.ww-center .step-head { color: var(--muted); text-shadow: 0 1px 2px #000; }
+.ww-center .label { color: var(--muted); text-shadow: 0 1px 2px #000; }
+.ww-center .witch-box .victim { text-shadow: 0 1px 3px #000; }
+.ww-center .witch-box .victim b { color: #ff8f86; }
+.ww-center .role-title { font-size: 21px; text-shadow: 0 1px 3px #000; }
+.ww-center .role-help { color: #e6dcc6; font-size: 14px; min-height: 0; text-shadow: 0 1px 2px #000; }
+.ww-center .over-head { padding: 0; text-shadow: 0 1px 3px #000; }
+.ww-center .over-head h2 { font-size: 26px; }
+.ww-center .over-head svg { width: 48px; height: 48px; }
+.ww-center .tbl { font-size: 13px; background: rgba(12,8,4,.5); border-radius: 6px; }
+.ww-center .log { text-align: left; background: rgba(12,8,4,.5); border-radius: 6px; padding: 6px 8px; }
+.ww-center .empty { color: #e6dcc6; padding: 8px; }
+.ww-center .progress { background: rgba(0,0,0,.4); }
+/* night: the same table in the dark, a little moonlight from above */
+.ww-table.is-night::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 90% 70% at 50% 30%, rgba(60,80,150,.28), rgba(6,9,22,.86) 75%); }
+.ww-table.is-night .ww-seat .ww-card { filter: brightness(.82) saturate(.85); }
+.ww-table.is-night .ww-seat.dead .ww-card { filter: grayscale(.6) brightness(.6); }
+.night .day-foot { background: var(--night); }
+/* the deal: the role deck on the table, one card at a time */
+.deal.tbl-surface { --muted: #d7c8a6; position: relative; }
+.ww-deck { position: absolute; top: 14px; left: 14px; z-index: 1; }
+.ww-dcard { --card-w: 40px; width: 40px; display: block; }
+.ww-deck .tbl-badge { right: -8px; bottom: -4px; }
+.ww-ghost { padding: 5%; background: #0d0f17; }
+.flip { width: min(60vw, clamp(150px, calc((100dvh - 400px) * .716), 250px)); aspect-ratio: 63 / 88; }
+.flip .face { background: #0d0f17; padding: 4.5%; border: 1px solid rgba(0,0,0,.6); border-radius: 12px; box-shadow: 0 2px 3px rgba(0,0,0,.4), 0 14px 28px rgba(0,0,0,.45); }
+.deal.tbl-surface .who b, .deal.tbl-surface .role-title, .deal.tbl-surface .role-help { text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+.deal.tbl-surface .role-help { color: #e6dcc6; }
+.deal.tbl-surface .dots i { background: rgba(0,0,0,.45); }
+/* your own (bigger) card: the laid-on markers sit on its lower edge too */
+.ww-table.s-s .ww-seat.me .odds, .ww-table.s-s .ww-seat.me .ps { top: calc(1px + var(--cw) * 1.4 * 88 / 63 - 11px); }
+.ww-table.s-s .ww-seat.has-odds .ps { margin-top: -13px; }
+/* the narrowest phones: 13-20 seats need a little less room each */
+@media (max-width: 360px) {
+  .ww-table.s-s { --cw: 20px; --sw: 52px; }
+  .ww-table.s-s .ww-seat .pn.tbl-plate { font-size: 9px; padding: 0 3px; }
+  .ww-table.s-m { --cw: 32px; --sw: 64px; }
+}
+/* phone on its side: a short, wide table, so small cards with the markers laid on them */
+@media (max-height: 500px) {
+  .ww-table, .ww-table.s-m { --cw: 26px; --sw: 74px; }
+  .ww-table.s-s { --cw: 20px; --sw: 58px; }
+  .ww-table .pbtn.ww-seat { gap: 1px; padding: 1px; min-height: 0; }
+  .ww-table .pbtn.ww-seat .bar { display: none; }
+  .ww-table .ww-seat .pn.tbl-plate { font-size: 11px; line-height: 14px; padding: 0 4px; }
+  .ww-table .pbtn.ww-seat .odds, .ww-table .ww-seat .ps { position: absolute; z-index: 1; left: 50%; top: calc(1px + var(--cw) * 88 / 63 - 11px); transform: translateX(-50%); white-space: nowrap; font-size: 10px; line-height: 12px; padding: 0 4px; }
+  .ww-table .ww-seat .ps { background: rgba(12,8,4,.72); border-radius: 6px; max-width: none; }
+  .ww-table .ww-seat.me .odds, .ww-table .ww-seat.me .ps { top: calc(1px + var(--cw) * 1.4 * 88 / 63 - 11px); }
+  .ww-table .ww-seat.has-odds .ps { margin-top: -13px; }
+  .ww-table .ww-seat .ps { max-width: calc(var(--sw) + 8px); overflow: hidden; text-overflow: ellipsis; }
+  .ww-center .say { font-size: 15px; }
+  .ww-center .wait-moon { width: 40px; height: 40px; }
+  .ww-center .news .nt, .ww-center .claim { font-size: 12px; }
+  .ww-center .news, .ww-center .claim { padding: 4px 8px; }
+  .ww-cin { gap: 4px; }
+}
+@media (min-width: 900px) {
+  .ww-table { --cw: 64px; --sw: 132px; }
+  .ww-table.s-m { --cw: 54px; --sw: 118px; }
+  .ww-table.s-s { --cw: 40px; --sw: 92px; }
+  .pbtn.ww-seat { min-height: 44px; padding: 4px; }
+  .ww-seat .pn.tbl-plate { font-size: 14px; line-height: 20px; padding: 1px 8px; }
+  .ww-table.s-s .ww-seat .pn.tbl-plate { font-size: 12px; line-height: 17px; }
+  .ww-seat .ps { font-size: 12px; }
+  .pbtn.ww-seat .odds, .pbtn.ww-seat.has-odds .odds { font-size: 16px; margin: 0; }
+  .ww-center .news .nt { font-size: 18px; }
+  .ww-center .claim { font-size: 15px; }
+  .ww-cin { max-width: 560px; width: 100%; margin: auto; }
+  .ww-center .say { font-size: 26px; }
+  .ww-center .wait-moon { width: 96px; height: 96px; }
+  .ww-play .stat-line { padding: 6px 20px; font-size: 14px; }
+}
+
 /* ---------- laptop: use the width (bigger player tiles, centred night) ---------- */
 @media (min-width: 900px) {
   .pgrid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
@@ -378,3 +511,5 @@ input[type=text]:focus { outline: none; border-color: var(--accent); }
   .deal .who b { font-size: 36px; }
   .role-title { font-size: 30px; }
 }
+/* The table screens use .night only as a hook for the night sounds: no padding or scrolling of their own. */
+.ww-play.night { padding: 0; gap: 0; overflow: hidden; max-width: none; margin: 0; }
