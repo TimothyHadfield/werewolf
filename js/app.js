@@ -555,7 +555,7 @@
     const stats = '<div class="stat-line"><span>Alive <b>' + alive + "</b></span><span>" + esc(TH().wolves) + " left <b>" + wolvesLeftText(g) + "</b></span>" +
       (cpu ? "<span>You: <b class=\"" + (me.role === "wolf" ? "tagw" : "tagg") + "\">" + esc(RN(me.role)) + "</b>" + (me.alive ? "" : " (dead)") + "</span>" : "") +
       (!cpu && g.phase === "day" && S.settings.timer ? timerChip(g) : "") +
-      '<span style="margin-left:auto">Wolf odds ' + q("odds") + "</span>" + (cpu && me.alive && g.phase === "day" ? ' <button class="btn ghost" style="min-height:30px;padding:4px 10px" data-act="hint">Hint</button>' : "") + "</div>";
+      '<span style="margin-left:auto">Wolf odds ' + q("odds") + "</span>" + (cpu && me.alive && g.phase === "day" ? ' <button class="btn ghost" style="min-height:40px;padding:4px 14px" data-act="hint">Hint</button>' : "") + "</div>";
     // hunter pending
     const hunter = g.pendingHunters[0];
     let main = "";
@@ -1249,7 +1249,7 @@
   }
   function onlineName() { return ((S.names[0] || "").trim() || "Player").slice(0, 14); }
   function renderOnline() {
-    const body = '<div class="page" style="max-width:520px">' +
+    const body = '<div class="page online-pick" style="max-width:520px">' +
       '<p class="label">Your name</p><div class="names"><div class="nm"><span class="seat">' + IC.play.replace("<svg", '<svg width="16" height="16"') + '</span><input type="text" data-name="0" maxlength="14" placeholder="Your name" value="' + esc(S.names[0] || "") + '" aria-label="Your name" autocomplete="off"></div></div>' +
       '<p class="label" style="margin-top:18px">Join a room</p><div class="row join-row"><input id="joinCode" class="code-in" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" maxlength="5" placeholder="CODE" aria-label="Room code"><button class="btn primary" data-act="onJoin">Join</button></div>' +
       '<p class="label" style="margin-top:18px">Or host one</p><button class="menu-item main-item" data-act="onCreate"><span class="mi-ic">' + IC.table + '</span><span><b>Create a room</b><small>Pick players and roles, then share the code</small></span></button>' +
