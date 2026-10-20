@@ -12,7 +12,9 @@ for (const [tag, opts] of [["phone", { ...devices["iPhone 15"] }], ["laptop", { 
   p.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
   p.on("pageerror", (e) => errs.push("EXC " + e.message));
   await p.goto(URL);
-  const tap = (sel) => p.evaluate((s) => { const e = [...document.querySelectorAll(s)].find((e) => e.offsetParent !== null && !e.disabled); if (e) { e.click(); return true; } return false; }, sel);
+  // 30 ms pause: the app ignores taps within 19 ms (?fast) of a screen change, like a double tap.
+  const tap = async (sel) => { await sleep(30); return tapNow(sel); };
+  const tapNow = (sel) => p.evaluate((s) => { const e = [...document.querySelectorAll(s)].find((e) => e.offsetParent !== null && !e.disabled); if (e) { e.click(); return true; } return false; }, sel);
   const shot = async (name) => {
     await sleep(450);
     const m = await p.evaluate(() => ({ ow: document.documentElement.scrollWidth > innerWidth + 1, oh: document.documentElement.scrollHeight > innerHeight + 1 }));

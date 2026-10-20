@@ -1,5 +1,11 @@
 # Werewolf / Mafia — session log
 
+## 2026-10-20 — QA agent's 9 fixes (project lead, builder agent)
+- **Asked** (coordinator, forwarding the QA report): 20-player witch Done unreachable; computer fired a dead human's Hunter shot; double taps skipped Start the day / Vote out / Seer result; no Leave mid online game; damaged saves crashed; resume skipped your card; duplicate names accepted.
+- **Built**: `.night` scrolls with sticky actions; `isBot` keeps your own Hunter shot; 380 ms tap guard after each screen change; Leave/Close room in Settings; `clean()` validates every saved field + render falls back home with a toast; resume shows your card; duplicate-name toast. Also found and fixed a stray backspace in the `?fast` regex (test mode ran at full speed).
+- **Verified** (local, WebKit iPhone 15): QA scripts rerun. 20 players Done at y=647/659; dead Hunter waited 5 s, then the human shot; at real speed every double tap moved exactly one step and the game ended (0 errors); 10 damaged saves → home, 0 errors; resume card shown; "Sam"/"sam " blocked; online Settings → Leave room → home. 33 tests, both drives to a winner, screens phone + laptop 0 errors, two-browser online game finished.
+- **Open**: none new.
+
 ## 2026-10-19 — first build (project lead, builder agent)
 - **Asked** (via the games manager): build the Werewolf / Mafia companion: voice narrator, balanced role setups, each player's wolf chance, Secret Hitler-style app with a vote/day log. Phase 2: exact rules with variants and sources, online seats (shared `_online` module), an ideas brainstorm with the good ones built, polished original art, and a full QA pass.
 - **Built**:

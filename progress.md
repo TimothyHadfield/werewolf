@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → `CLAUDE.md` → `docs/rules-check.md` → `docs/ideas.md` → `chat.md` (latest entry).
-Last updated: 2026-10-19 (night), by the Werewolf project lead (builder agent).
+Last updated: 2026-10-20, by the Werewolf project lead (builder agent), after the QA agent's 9 fixes.
 
 ## Goal right now
 A no-moderator Werewolf / Mafia companion on Tim's iPhone. It covers:
@@ -24,6 +24,7 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 | Online | **Done and wired** with the shared `_online` module (`js/online.js` copied unchanged, adapter `js/game-online.js`). Create room → code → join → host sets open seats to computer → start. Measured: two-browser game played to the end twice on the real Firebase project, including a reload plus "Resume online" mid-game. |
 | Art | Done. Original SVG role cards (werewolf + mafia themes), card back, icon. |
 | Docs | `docs/rules-check.md` (sources), `docs/ideas.md` (17 ideas: 11 built, 6 skipped). |
+| QA fixes (10-20) | Done, all 9 from the QA agent: the night panel scrolls with Done pinned (20 players: Done at y=647 of 659), a dead human Hunter chooses their own shot vs computer, taps are ignored for 380 ms after a screen change (double taps), Settings has Leave room online, damaged saves fall back to defaults (and a broken game goes home with a toast), resume shows your card, duplicate names are blocked with a toast. |
 
 ## Measured numbers
 - Computers, village win % on 8 players (2 wolves, Seer, Doctor, 4 villagers), Ultimate rules, rows = village level, columns = wolves level:
@@ -51,6 +52,8 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 - Firebase logs an "OAuth … domain not authorized" *warning* on localhost. Anonymous login still works.
 - The deal screen's hidden step buttons stay in the DOM (`.step-hidden`). Drive scripts must click only visible elements (`offsetParent !== null`).
 - After editing `js/` or CSS, run `node tools/stamp.js` or iPhones keep the old files.
+- Double-tap guard: taps within `380 * FAST` ms of a screen change are ignored (19 ms in `?fast`). Test scripts must pause about 30 ms before each tap; to test the guard itself, run **without** `?fast` (QA script `scratchpad/qaL/t5-dbltap.mjs` with `WURL=http://localhost:8620/ TD=420`).
+- Until 10-20 the `?fast` regex held a stray backspace character (from a Python patch with `\b` in a normal string), so `?fast` silently ran at full speed. Write regexes in patch scripts with raw strings.
 
 ## Decisions
 - Online night: the moderator's steps (start, empty night steps, morning, dusk → night) run instantly inside the adapter's `apply`, so `toAct` is never empty. The table-mode random "fake wait" for dead roles is not used online.

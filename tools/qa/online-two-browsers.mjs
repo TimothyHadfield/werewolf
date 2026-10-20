@@ -15,7 +15,9 @@ const mk = async (tag) => {
 };
 const A = await mk("A"), B = await mk("B");
 const vis = (p, sel) => ({ count: () => p.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => e.offsetParent !== null).length, sel).catch(() => 0) });
-const tap = (p, sel) => p.evaluate((s) => { const e = [...document.querySelectorAll(s)].find((e) => e.offsetParent !== null && !e.disabled); if (e) { e.click(); return true; } return false; }, sel).catch(() => false);
+// 30 ms pause: the app ignores taps within 19 ms (?fast) of a screen change, like a double tap.
+const tap = async (p, sel) => { await sleep(30); return tapNow(p, sel); };
+const tapNow = (p, sel) => p.evaluate((s) => { const e = [...document.querySelectorAll(s)].find((e) => e.offsetParent !== null && !e.disabled); if (e) { e.click(); return true; } return false; }, sel).catch(() => false);
 // Host: name, create a 6-seat room
 await tap(A, "[data-act=online]"); await A.fill("[data-name='0']", "Tim");
 await tap(A, "[data-act=onCreate]");

@@ -18,14 +18,39 @@
   function load() {
     try {
       const s = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (s && typeof s === "object") {
-        const out = Object.assign({}, DEFAULT_STORE, s);
-        out.settings = Object.assign({}, DEFAULT_STORE.settings, s.settings || {});
-        out.settings.opts = Object.assign({}, W.DEFAULT_OPTS, out.settings.opts || {});
-        return out;
-      }
+      if (s && typeof s === "object" && !Array.isArray(s)) return clean(s);
     } catch (e) { /* private mode or bad JSON: start fresh */ }
     return JSON.parse(JSON.stringify(DEFAULT_STORE));
+  }
+  // A damaged or old save never breaks the app: every field is checked, bad ones fall back.
+  function clean(s) {
+    const D = JSON.parse(JSON.stringify(DEFAULT_STORE));
+    const obj = (x) => x && typeof x === "object" && !Array.isArray(x);
+    const pick = (v, ok, d) => (ok.indexOf(v) >= 0 ? v : d);
+    const int = (v, lo, hi, d) => (typeof v === "number" && isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d);
+    const st = obj(s.settings) ? s.settings : {};
+    const out = D;
+    out.settings.theme = pick(st.theme, ["werewolf", "mafia"], D.settings.theme);
+    out.settings.ruleset = pick(st.ruleset, Object.keys(W.RULESETS).concat("custom"), D.settings.ruleset);
+    out.settings.rate = pick(st.rate, ["slow", "normal", "fast"], D.settings.rate);
+    out.settings.level = pick(st.level, ["easy", "normal", "smart"], D.settings.level);
+    out.settings.timer = pick(st.timer, [0, 2, 3, 5], 0);
+    out.settings.voice = st.voice !== false;
+    const o = Object.assign({}, W.DEFAULT_OPTS);
+    if (obj(st.opts)) Object.keys(W.DEFAULT_OPTS).forEach((k) => { if (typeof st.opts[k] === typeof W.DEFAULT_OPTS[k]) o[k] = st.opts[k]; });
+    out.settings.opts = o;
+    out.names = Array.isArray(s.names) ? s.names.slice(0, 20).map((n) => (typeof n === "string" ? n.slice(0, 14) : "")) : [];
+    out.count = int(s.count, 4, 20, D.count);
+    out.cpuCount = int(s.cpuCount, 5, 12, D.cpuCount);
+    out.onCount = int(s.onCount, 5, 12, D.onCount);
+    out.choice = obj(s.choice) ? s.choice : {};
+    out.custom = obj(s.custom) ? s.custom : {};
+    const okGame = (g, mode) => obj(g) && Array.isArray(g.players) && g.players.length >= 4 && typeof g.phase === "string" && g.mode === mode && obj(g.setup) && Array.isArray(g.log) && obj(g.opts) && obj(g.mem);
+    out.game = okGame(s.game, "table") ? s.game : null;
+    out.cpu = okGame(s.cpu, "seats") ? s.cpu : null;
+    out.undo = out.game && Array.isArray(s.undo) ? s.undo.filter((g) => okGame(g, "table")) : [];
+    out.online = obj(s.online) && typeof s.online.code === "string" && /^[A-Z0-9]{5}$/.test(s.online.code) ? { code: s.online.code } : null;
+    return out;
   }
   let S = load();
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage full or blocked */ } }
@@ -41,7 +66,7 @@
     gen: 0, from: "home",
   };
   // ?fast in the URL speeds every pause up 20x (headless checks only).
-  const FAST = /[?&]fast/.test(location.search) ? 0.05 : 1;
+  const FAST = /[?&]fast(?:[=&]|$)/.test(location.search) ? 0.05 : 1;
   const T = () => S.settings.theme;
   // Seat games: vs computer (this device) or online (a room). "Me" is the seat you hold.
   const SEATED = () => ui.mode === "cpu" || ui.mode === "online";
@@ -190,12 +215,23 @@
   function render() {
     const v = ui.view;
     let html = "";
-    if (v === "home") html = renderHome();
-    else if (v === "setup") html = renderSetup();
-    else if (v === "game") html = renderGame();
-    else if (v === "lab") html = renderLab();
-    else if (v === "rules") html = renderRules();
-    else if (v === "online") html = renderOnline();
+    try {
+      if (v === "home") html = renderHome();
+      else if (v === "setup") html = renderSetup();
+      else if (v === "game") html = renderGame();
+      else if (v === "lab") html = renderLab();
+      else if (v === "rules") html = renderRules();
+      else if (v === "online") html = renderOnline();
+    } catch (e) {
+      // A broken saved game must never leave a blank page: drop it and go home.
+      if (v === "game") { if (ui.mode === "cpu") S.cpu = null; else if (ui.mode === "table") { S.game = null; S.undo = []; } save(); }
+      ui.view = "home"; html = renderHome();
+      setTimeout(() => toast("That game couldn't be opened."), 0);
+    }
+    // Remember when the screen last changed, so a double tap can't hit the next screen's button.
+    const g = v === "game" ? G() : null;
+    const key = [v, ui.mode, ui.setupStep, ui.dealOpen, ui.nightStage, g && g.phase, g && g.day, g && g.nightNo, g && g.night && g.night.i, g && g.revealIdx, g && g.log.length, g && g.seerLog && g.seerLog.length, g && g.pendingHunters && g.pendingHunters.length, g && g.ballots && Object.keys(g.ballots).length].join("|");
+    if (key !== ui.screenKey) { ui.screenKey = key; ui.changedAt = Date.now(); }
     $app.innerHTML = html;
     const sc = $app.querySelector("[data-keep-scroll]");
     if (sc && ui.scrollTop) sc.scrollTop = ui.scrollTop;
@@ -769,7 +805,8 @@
     const g = S.cpu;
     if (!g || ui.mode !== "cpu" || ui.view !== "game") return;
     if (g.winner) { render(); return; }
-    const isBot = (s) => s !== 0 || !g.players[0].alive;
+    // You stay in charge of your own Hunter shot, even though you're dead.
+    const isBot = (s) => s !== 0 || (!g.players[0].alive && g.pendingHunters[0] !== 0);
     const pend = W.pendingActors(g);
     const bots = pend.filter(isBot);
     if (bots.length) {
@@ -913,6 +950,7 @@
       '<div class="set-row"><span class="sl">' + esc(RN("seer")) + " sees</span>" + seg("seerSees", [["team", "Wolf or not"], ["role", "Exact card"]], o.seerSees) + "</div>" +
       sw("doctorSelf", esc(RN("doctor")) + " may guard self") + sw("guardRepeat", "Same guard two nights") + sw("witchSelfHeal", esc(RN("witch")) + " may heal self") + sw("witchBoth", "Both potions one night") +
       '<div class="set-row"><span class="sl">Wolves win at</span>' + seg("win", [["parity", "Equal"], ["all", "All dead"]], o.win) + "</div></div>" +
+      (ui.mode === "online" && ui.view === "game" && ui.osnap && ui.osnap.code ? '<div class="set-group"><p class="label">Room ' + esc(ui.osnap.code) + '</p><div class="set-row"><span class="sl">' + (ui.osnap.isHost && ui.osnap.status === "lobby" ? "Close the room for everyone" : "A computer takes your seat") + '</span><button class="btn" data-act="leaveRoom">' + (ui.osnap.isHost && ui.osnap.status === "lobby" ? "Close room" : "Leave room") + "</button></div></div>" : "") +
       '<p class="muted" style="font-size:12px;margin:0">' + esc(window.WW_BUILD || "") + "</p>";
     openSheet("Settings", body);
     ui.sheet = "settings";
@@ -941,6 +979,8 @@
   function startTable() {
     const n = S.count;
     const names = playerNames(n);
+    const seen = {};
+    for (const nm of names) { const k = nm.trim().toLowerCase(); if (seen[k]) { toast("Two players are called " + nm + ". Give one a different name."); ui.setupStep = 1; render(); return; } seen[k] = 1; }
     const setup = currentSetup(n);
     const prob = W.setupProblem(W.normalizeSetup(setup, n), n);
     if (prob) { toast(prob); return; }
@@ -979,6 +1019,8 @@
     const el = ev.target.closest("[data-act]");
     if (!el) { if (ev.target === $sheet) closeSheet(); return; }
     const a = el.dataset.act;
+    // Ignore a tap that lands just after the screen changed under the finger (double taps).
+    if (Date.now() - (ui.changedAt || 0) < 380 * FAST && a !== "closeSheet" && a !== "tab" && $app.contains(el)) return;
     const id = el.dataset.id != null ? +el.dataset.id : null;
     const sc = $app.querySelector("[data-keep-scroll]");
     ui.scrollTop = sc ? sc.scrollTop : 0;
@@ -1003,7 +1045,7 @@
       case "newTable": ui.setupMode = "table"; ui.setupStep = 1; ui.view = "setup"; render(); return;
       case "newCpu": ui.setupMode = "cpu"; ui.setupStep = 1; ui.view = "setup"; render(); return;
       case "resume": ui.mode = "table"; ui.view = "game"; ui.nightKey = null; ui.gen++; render(); resumeTable(); return;
-      case "resumeCpu": ui.mode = "cpu"; ui.view = "game"; ui.gen++; render(); pump(); return;
+      case "resumeCpu": ui.mode = "cpu"; ui.view = "game"; ui.gen++; render(); if (S.cpu && S.cpu.phase === "start") showCpuCard(); else pump(); return;
       case "lab": ui.view = "lab"; render(); return;
       case "rules": ui.view = "rules"; render(); return;
       case "setupNext": ui.setupStep = 2; ui.scrollTop = 0; render(); return;
