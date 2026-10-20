@@ -1,5 +1,11 @@
 # Werewolf / Mafia — session log
 
+## 2026-10-20 — sound & effects (builder agent)
+- **Asked** (Tim via manager): "add opptional sounds … win celebrations, and other fun annimations … customizable in the settings".
+- **Built**: `js/fx.js` (shared copy), `js/game-fx.js` (event → sound map in progress.md, custom `nightFall` howl and `dayBreak` chime), hook in `render()` that diffs game states for every mode, error sound on refused taps, timer tick/alarm, "Sound & effects" group in Settings (styled like the other rows in `styles.css`).
+- **Verified**: `tests/fx.test.js` failed first (module missing), then 4 pass; `node tests/run.js` 37 passed. Full vs-computer and table drives in WebKit iPhone with `FX.play` spied: right sounds in order, 0 console errors, no overflow; confetti shots in Chrome (`scratchpad/design/werewolf-fx/`).
+- **Open**: see NOT verified (real iPhone sound, online two-browser run).
+
 ## 2026-10-20 — visual design pass (builder agent)
 - **Asked** (Tim via manager): "review them again for design improvements especially visually."
 - **Built** (`styles.css`, 2 small `app.js` edits): laptop player grid 4 across at 84 px, centred night (hidden log column dropped at night), deal card sized by screen height, outlined disabled main buttons, 40 px Hint/?/claim-x taps, full-width online form, laptop setup shows one main button, bigger laptop chips/menu/table, darker dead cards on game over.

@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → `CLAUDE.md` → `docs/rules-check.md` → `docs/ideas.md` → `chat.md` (latest entry).
-Last updated: 2026-10-20, by the design-pass builder agent (after the QA agent's 9 fixes).
+Last updated: 2026-10-20, by the sound & effects builder agent (after the design pass).
 
 ## Goal right now
 A no-moderator Werewolf / Mafia companion on Tim's iPhone. It covers:
@@ -25,6 +25,7 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 | Art | Done. Original SVG role cards (werewolf + mafia themes), card back, icon. |
 | Docs | `docs/rules-check.md` (sources), `docs/ideas.md` (17 ideas: 11 built, 6 skipped). |
 | Design pass (10-20) | Done. Laptop: player tiles 4 per row at 84 px (they were one 60 px strip), night centred at 900 px with the hidden log column removed, bigger setup chips and home menu. iPhone: the deal card shrinks with screen height so "Hide · pass on" fits (it was cut off). Disabled main buttons are a coloured outline with readable text (were muddy fills). Hint button and ? marks have 40 px taps. Online name field and "Create a room" are full width. Laptop setup shows only "Deal cards". Shots: `scratchpad/design/werewolf/before|after/`. |
+| Sound & effects (10-20) | Done. Shared `js/fx.js` (copied unchanged from `_fx/`) + `js/game-fx.js` (this game's event → sound map, two custom sounds, animations, celebrations). Driven by state diffs in `render()`, so table, vs computer and online all sound the same. Settings has a "Sound & effects" group. Test `tests/fx.test.js` (4 tests). |
 | QA fixes (10-20) | Done, all 9 from the QA agent: the night panel scrolls with Done pinned (20 players: Done at y=647 of 659), a dead human Hunter chooses their own shot vs computer, taps are ignored for 380 ms after a screen change (double taps), Settings has Leave room online, damaged saves fall back to defaults (and a broken game goes home with a toast), resume shows your card, duplicate names are blocked with a toast. |
 
 ## Measured numbers
@@ -44,6 +45,28 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 - "build regular play online with a computer or other online players for all the games and their common varients that match exactly the play of the in-person game"
 - "make sure that everything works properlly without errors… get everything right like rules and artwork and specific numbers"
 - $0, static GitHub Pages, no copyrighted art or rule text.
+- (2026-10-20) "add opptional sounds you can add to the games that reflect what's happening in the game accurately as well as win celebrations, and other fun annimations to go along with everything. Just make sure everything is customizable in the settings so the user can play as preffered."
+
+## Event → sound map (`js/game-fx.js`)
+| Event | Sound | Animation |
+|---|---|---|
+| New game dealt | `shuffle` | — |
+| Table deal: card tapped / your card shown (vs computer, online) | `cardFlip` | existing CSS flip |
+| Table deal: phone passed on | `cardSlide` | next dot pops |
+| Night falls | `nightFall` (custom: low wolf howl over wind) | moon pops |
+| Day breaks | `dayBreak` (custom: rooster-ish chime + soft bell) | sun pops |
+| Night death / vote-out / Hunter's shot | `stamp` (shot adds `hit`), 0.7 s after dawn | the tile shakes + red flash |
+| Dead card shown face up | `cardFlip` just after the stamp | tile pops |
+| Nobody voted out / tie | `miss` | — |
+| Hunter fires into the air | `whoosh` | — |
+| Seer claim entered | `pop` | the new claim pops |
+| Ballot cast (seat games, each player) | `place` (yours full volume, others 0.7) | "Votes in" pops |
+| Your own night pick (wolf / doctor / bodyguard / witch; table: wolf/doctor/bodyguard only) | `place` | — |
+| Seer's answer (your seat, or the table phone) | `cardFlip` | result card pops; finding a wolf on your own phone = `big` sparkle |
+| It becomes YOUR turn (seat games) | `turn` | footer / night actions pulse |
+| Illegal tap / move refused / bad setup | `error` (with the toast) | — |
+| Day timer last 10 s / time up | `tick` / `alarm` | — |
+| Game over | celebrate `win` (table phone: winners' colours) or your own `win`/`lose` (seat games) | confetti in the winning side's colours |
 
 ## Traps
 - `js/online.js` is a shared file: never edit it here.
@@ -53,6 +76,8 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 - Firebase logs an "OAuth … domain not authorized" *warning* on localhost. Anonymous login still works.
 - The deal screen's hidden step buttons stay in the DOM (`.step-hidden`). Drive scripts must click only visible elements (`offsetParent !== null`).
 - After editing `js/` or CSS, run `node tools/stamp.js` or iPhones keep the old files.
+- `js/fx.js` is shared: never edit it here; re-copy from `_fx/fx.js`. Game sounds live in `js/game-fx.js`. Night sounds must never give away a role: no potion sound at the table, the "found a wolf" sparkle only on the Seer's own phone, other players' night moves are silent.
+- Headless WebKit runs only one animation frame while a phone-view `--eval` awaits, so confetti looks stuck in the corners there. Use `--engine chrome` for celebration screenshots.
 - Double-tap guard: taps within `380 * FAST` ms of a screen change are ignored (19 ms in `?fast`). Test scripts must pause about 30 ms before each tap; to test the guard itself, run **without** `?fast` (QA script `scratchpad/qaL/t5-dbltap.mjs` with `WURL=http://localhost:8620/ TD=420`).
 - Until 10-20 the `?fast` regex held a stray backspace character (from a Python patch with `\b` in a normal string), so `?fast` silently ran at full speed. Write regexes in patch scripts with raw strings.
 
@@ -67,6 +92,8 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 - Online with three or more humans, and host takeover after the host disappears. Both are covered by the shared module's own tests, not by Werewolf tests.
 - Day timer spoken warnings: built, but only checked as code, not listened to.
 - Design pass: the game-over screen on laptop was not re-shot (`screens.mjs` step 13 shows Day 1 on laptop, a script quirk). A hint toast can linger for 2.4 s onto the next screen (left as is; a fix would change behaviour).
+
+- Sound & effects: no sound was heard (headless has no Web Audio on Windows WebKit); sounds checked by spying on `FX.play` during full drives. Real iPhone sound, silent switch and speech + sound together not checked. Online sounds checked only by code path (the same `render()` diff), not in a two-browser run. Storage-blocked behaviour relies on fx.js's own tests.
 
 ## Authorized next steps
 - None pending from Tim. Possible: Sheriff and extra roles (parked in ideas.md #16).

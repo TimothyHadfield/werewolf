@@ -289,6 +289,21 @@ input[type=text]:focus { outline: none; border-color: var(--accent); }
 .set-row { display: flex; align-items: center; gap: 10px; min-height: 40px; }
 .set-row .sl { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
 .set-group { display: grid; gap: 6px; }
+/* Sound & effects rows (from js/fx.js) drawn like the other Settings rows */
+.fx-set { display: grid; gap: 6px; }
+.fx-set .fx-row { border-top: 0; padding: 0; min-height: 40px; }
+.fx-set .fx-lab { gap: 6px; }
+.fx-set .seg button[aria-pressed="true"] { background: var(--card-2); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.fx-set .q { position: relative; display: inline-flex; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; align-items: center; justify-content: center; background: transparent; padding: 0; }
+.fx-set .q::after { content: ""; position: absolute; inset: -10px; }
+.fx-set .fx-test { min-height: 34px; background: var(--card-2); }
+.fx-set .fx-vol { accent-color: var(--accent); }
+.fx-set .switch { width: 50px; height: 30px; }
+.fx-set .switch span { border-radius: 15px; }
+.fx-set .switch span::after { width: 24px; height: 24px; }
+.fx-set .switch input:checked + span::after { transform: translateX(20px); }
+.fx-set .seg { gap: 2px; padding: 3px; border-radius: 10px; }
+.fx-set .seg button { padding: 7px 12px; border-radius: 8px; font-size: 14px; font-weight: 600; min-height: 34px; }
 .help-text { font-size: 14px; color: var(--muted); line-height: 1.5; }
 .help-text b { color: var(--text); }
 

@@ -67,6 +67,11 @@
   };
   // ?fast in the URL speeds every pause up 20x (headless checks only).
   const FAST = /[?&]fast(?:[=&]|$)/.test(location.search) ? 0.05 : 1;
+  // Optional sounds, celebrations and animations (js/fx.js + js/game-fx.js), switched in Settings.
+  const FX = window.FX || null;
+  if (FX) { FX.init({ game: "werewolf", accent: "#6ea8fe" }); if (window.WWFX) window.WWFX.init(FX, { scale: FAST }); }
+  const sfx = (name, o) => { if (FX) FX.play(name, o); };
+  function oops(msg) { sfx("error"); toast(msg); }
   const T = () => S.settings.theme;
   // Seat games: vs computer (this device) or online (a room). "Me" is the seat you hold.
   const SEATED = () => ui.mode === "cpu" || ui.mode === "online";
@@ -614,6 +619,8 @@
         if (!g || g.phase !== "day" || ui.timer !== t) { clearInterval(timerInt); return; }
         t.left -= 1;
         const el = document.getElementById("timerTxt"); if (el) el.textContent = fmtTime(t.left);
+        if (t.left > 0 && t.left <= 10) sfx("tick");
+        if (t.left === 0) sfx("alarm");
         if (t.left === 60 && !t.warned) { t.warned = true; window.Narrator.play([{ say: "One minute left." }], { voice: S.settings.voice }); }
         if (t.left <= 0) { clearInterval(timerInt); t.running = false; window.Narrator.play([{ say: "Time is up. Time to vote." }], { voice: S.settings.voice }); render(); }
       }, 1000);
@@ -834,7 +841,7 @@
   }
   function applyCpu(a) {
     const prev = S.cpu;
-    try { S.cpu = W.apply(S.cpu, a); } catch (e) { toast(e.message); return; }
+    try { S.cpu = W.apply(S.cpu, a); } catch (e) { oops(e.message); return; }
     if (a.type !== "pick" || S.cpu.phase !== prev.phase) ui.sel = null;
     announceChange(prev, S.cpu);
     save();
@@ -858,7 +865,7 @@
     if (ui.mode === "cpu") { a.seat = 0; applyCpu(a); pump(); return; }
     if (ui.mode !== "online" || !room) return;
     a.seat = ME(); ui.sel = null;
-    room.act(a).then((r) => { if (r && !r.ok) toast(r.message || "That move didn't go through."); });
+    room.act(a).then((r) => { if (r && !r.ok) oops(r.message || "That move didn't go through."); });
     render();
   }
 
@@ -943,6 +950,7 @@
       '<div class="set-group"><p class="label">Look</p><div class="set-row"><span class="sl">Theme</span>' + seg("theme", [["werewolf", "Werewolf"], ["mafia", "Mafia"]], s.theme) + "</div></div>" +
       '<div class="set-group"><p class="label">Narrator</p><div class="set-row"><span class="sl">Voice</span><label class="switch"><input type="checkbox" data-set="voice" ' + (s.voice ? "checked" : "") + '><span></span></label></div><div class="set-row"><span class="sl">Speed</span>' + seg("rate", [["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]], s.rate) + "</div>" +
       '<div class="set-row"><span class="sl">Day timer</span>' + seg("timer", [["0", "Off"], ["2", "2 min"], ["3", "3 min"], ["5", "5 min"]], s.timer) + "</div></div>" +
+      (FX ? '<div class="set-group"><p class="label">Sound &amp; effects</p><div id="fxSet"></div></div>' : "") +
       '<div class="set-group"><p class="label">Computers</p><div class="set-row"><span class="sl">Level ' + q("bots") + "</span>" + seg("level", [["easy", "Easy"], ["normal", "Normal"], ["smart", "Smart"]], s.level) + "</div></div>" +
       '<div class="set-group"><p class="label">Rules <span class="grow"></span><span style="text-transform:none;letter-spacing:0">new games</span></p>' +
       '<div class="seg" style="width:100%;display:flex">' + [["ultimate", "Ultimate"], ["millers", "Millers H."], ["mafia", "Mafia"], ["custom", "Custom"]].map(([v, l]) => '<button style="flex:1" data-act="seg" data-name="ruleset" data-v="' + v + '" class="' + (preset === v ? "sel" : "") + '">' + l + "</button>").join("") + "</div>" +
@@ -953,6 +961,8 @@
       (ui.mode === "online" && ui.view === "game" && ui.osnap && ui.osnap.code ? '<div class="set-group"><p class="label">Room ' + esc(ui.osnap.code) + '</p><div class="set-row"><span class="sl">' + (ui.osnap.isHost && ui.osnap.status === "lobby" ? "Close the room for everyone" : "A computer takes your seat") + '</span><button class="btn" data-act="leaveRoom">' + (ui.osnap.isHost && ui.osnap.status === "lobby" ? "Close room" : "Leave room") + "</button></div></div>" : "") +
       '<p class="muted" style="font-size:12px;margin:0">' + esc(window.WW_BUILD || "") + "</p>";
     openSheet("Settings", body);
+    const fxBox = document.getElementById("fxSet");
+    if (FX && fxBox) FX.renderSettings(fxBox);
     ui.sheet = "settings";
   }
   function claimSheet() {
@@ -980,10 +990,10 @@
     const n = S.count;
     const names = playerNames(n);
     const seen = {};
-    for (const nm of names) { const k = nm.trim().toLowerCase(); if (seen[k]) { toast("Two players are called " + nm + ". Give one a different name."); ui.setupStep = 1; render(); return; } seen[k] = 1; }
+    for (const nm of names) { const k = nm.trim().toLowerCase(); if (seen[k]) { oops("Two players are called " + nm + ". Give one a different name."); ui.setupStep = 1; render(); return; } seen[k] = 1; }
     const setup = currentSetup(n);
     const prob = W.setupProblem(W.normalizeSetup(setup, n), n);
-    if (prob) { toast(prob); return; }
+    if (prob) { oops(prob); return; }
     ui.gen++;
     S.game = W.newGame(names, setup, { opts: S.settings.opts, mode: "table" });
     S.undo = [];
@@ -995,7 +1005,7 @@
     const names = cpuNames(n);
     const setup = currentSetup(n);
     const prob = W.setupProblem(W.normalizeSetup(setup, n), n);
-    if (prob) { toast(prob); return; }
+    if (prob) { oops(prob); return; }
     ui.gen++;
     const g = W.newGame(names, setup, { opts: S.settings.opts, mode: "seats", kinds: names.map((_, i) => (i ? "bot" : "human")) });
     g.players.forEach((p) => { if (p.id) p.level = S.settings.level; });
@@ -1011,7 +1021,7 @@
     const g = G(); const me = g.players[ME()];
     const partners = me.role === "wolf" ? g.players.filter((x) => x.role === "wolf" && x.id !== me.id).map((x) => esc(x.name)) : [];
     openSheet("Your card", '<div class="deal" style="padding:0"><div class="flip open" style="width:180px"><span class="flip-in"><span class="face back">' + art(null, 180) + '</span><span class="face front">' + art(me.role, 180) + '</span></span></div><p class="role-title ' + team(me.role) + '">' + esc(RN(me.role)) + '</p><p class="role-help">' + esc(roleHelp(me.role, g)) + (me.role === "wolf" ? "<br><b>" + (partners.length ? "Your pack: " + partners.join(", ") : "You hunt alone.") + "</b>" : "") + "</p></div>", '<button class="btn primary big" data-act="cpuBegin">' + (ui.mode === "online" ? "Got it" : g.opts.dayFirst ? "Start the day" : "Start the night") + "</button>");
-    ui.sheet = "cpuCard";
+    ui.sheet = "cpuCard"; sfx("cardFlip");
   }
 
   // ------------------------------------------------------------ events
@@ -1024,7 +1034,7 @@
     const id = el.dataset.id != null ? +el.dataset.id : null;
     const sc = $app.querySelector("[data-keep-scroll]");
     ui.scrollTop = sc ? sc.scrollTop : 0;
-    try { handle(a, el, id); } catch (e) { toast(e.message || String(e)); }
+    try { handle(a, el, id); } catch (e) { oops(e.message || String(e)); }
   });
   function leaveGame() { ui.gen++; window.Narrator.stop(); clearTimeout(pumpTimer); }
   function handle(a, el, id) {
@@ -1068,13 +1078,13 @@
         const r = el.dataset.r;
         c[r] = Math.max(r === "wolf" ? 1 : 0, (c[r] || 0) + +el.dataset.d);
         const nc = W.normalizeSetup(c, n);
-        if (W.setupSize(nc) > n || W.setupProblem(nc, n)) { toast(W.setupProblem(nc, n) || "No room"); return; }
+        if (W.setupSize(nc) > n || W.setupProblem(nc, n)) { oops(W.setupProblem(nc, n) || "No room"); return; }
         S.custom[n] = nc; save(); render(); return;
       }
       case "startGame": if (ui.setupMode === "cpu") startCpu(); else if (ui.setupMode === "online") createRoom(); else startTable(); return;
 
       // --- table deal
-      case "flip": if (!ui.dealOpen) { ui.dealOpen = true; el.classList.add("open"); setTimeout(render, 420); } return;
+      case "flip": if (!ui.dealOpen) { ui.dealOpen = true; el.classList.add("open"); sfx("cardFlip"); setTimeout(render, 420); } return;
       case "dealNext": ui.dealOpen = false; act({ type: "seen" }, { noUndo: true }); render(); return;
       case "begin": {
         window.Narrator.unlock();
@@ -1138,7 +1148,7 @@
       case "undo": {
         if (!S.undo.length) return;
         window.Narrator.stop();
-        S.game = S.undo.pop(); ui.sel = null; save(); render(); return;
+        S.game = S.undo.pop(); ui.sel = null; ui.fxSkip = true; save(); render(); return;
       }
       case "tab": ui.tab = el.dataset.t; render(); return;
       case "timer": toggleTimer(); return;
@@ -1204,7 +1214,24 @@
 
   // Hook: whenever the table game sits at night with no step armed, arm it.
   const _render = render;
-  render = function () { _render(); if (ui.view === "game" && ui.mode === "table" && S.game && S.game.phase === "night" && ui.nightKey !== nightKey(S.game)) enterNightStep(); };
+  render = function () {
+    const fxEv = fxDiff();
+    _render();
+    if (fxEv && fxEv.length) { try { window.WWFX.fire(fxEv); } catch (e) { /* effects never break the game */ } }
+    if (ui.view === "game" && ui.mode === "table" && S.game && S.game.phase === "night" && ui.nightKey !== nightKey(S.game)) enterNightStep();
+  };
+  // What changed in the game since the last screen (any mode: your taps, computers, online players).
+  function fxDiff() {
+    if (!FX || !window.WWFX) return null;
+    const g = ui.view === "game" ? G() : null;
+    const prev = ui.fxMode === ui.mode ? ui.fxG : null;
+    const before = ui.fxMine;
+    const mineNow = !!(g && SEATED() && !g.winner && pendingOf(g).indexOf(ME()) >= 0);
+    ui.fxG = g; ui.fxMode = ui.mode; ui.fxMine = mineNow;
+    if (!g || g === prev) return null;
+    if (ui.fxSkip) { ui.fxSkip = false; return null; } // undo: going back makes no sound
+    try { return window.WWFX.events(prev, g, { seat: SEATED() ? ME() : null, mineBefore: !!(prev && before), mineNow: !!prev && mineNow }); } catch (e) { return null; }
+  }
 
   // ------------------------------------------------------------ online rooms
   // The shared module (js/online.js, an ES module) loads only when online play
@@ -1287,7 +1314,7 @@
     const n = S.onCount;
     const setup = currentSetup(n);
     const prob = W.setupProblem(W.normalizeSetup(setup, n), n);
-    if (prob) { toast(prob); return; }
+    if (prob) { oops(prob); return; }
     ui.osnap = null; ui.og = null; enterOnline();
     getRoom().then((r) => r.createRoom({ name: onlineName(), seats: ["human"].concat(Array(n - 1).fill("empty")), options: { setup: W.normalizeSetup(setup, n), opts: Object.assign({}, S.settings.opts), level: S.settings.level } }))
       .then((res) => { if (!res.ok) { toast(res.message || "Couldn't create the room."); ui.view = "online"; render(); } })
@@ -1296,7 +1323,7 @@
   function joinRoom() {
     const inp = document.getElementById("joinCode");
     const code = (inp ? inp.value : "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (code.length !== 5) { toast("Room codes have 5 letters."); return; }
+    if (code.length !== 5) { oops("Room codes have 5 letters."); return; }
     ui.osnap = null; ui.og = null; enterOnline();
     getRoom().then((r) => r.joinRoom(code, onlineName()))
       .then((res) => { if (!res.ok) { toast(res.message || "Couldn't join that room."); ui.view = "online"; render(); } })
