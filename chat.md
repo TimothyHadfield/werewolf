@@ -1,5 +1,11 @@
 # Werewolf / Mafia — session log
 
+## 2026-10-20 — visual design pass (builder agent)
+- **Asked** (Tim via manager): "review them again for design improvements especially visually."
+- **Built** (`styles.css`, 2 small `app.js` edits): laptop player grid 4 across at 84 px, centred night (hidden log column dropped at night), deal card sized by screen height, outlined disabled main buttons, 40 px Hint/?/claim-x taps, full-width online form, laptop setup shows one main button, bigger laptop chips/menu/table, darker dead cards on game over.
+- **Verified**: `tools/qa/screens.mjs` before/after at iPhone (WebKit) and 1280 px, 0 console errors, no overflow; phone-view cpu night at 1440 px; `node tests/run.js` 33 passed on the merged main.
+- **Open**: see NOT verified (laptop game-over shot, lingering toast).
+
 ## 2026-10-20 — QA agent's 9 fixes (project lead, builder agent)
 - **Asked** (coordinator, forwarding the QA report): 20-player witch Done unreachable; computer fired a dead human's Hunter shot; double taps skipped Start the day / Vote out / Seer result; no Leave mid online game; damaged saves crashed; resume skipped your card; duplicate names accepted.
 - **Built**: `.night` scrolls with sticky actions; `isBot` keeps your own Hunter shot; 380 ms tap guard after each screen change; Leave/Close room in Settings; `clean()` validates every saved field + render falls back home with a toast; resume shows your card; duplicate-name toast. Also found and fixed a stray backspace in the `?fast` regex (test mode ran at full speed).

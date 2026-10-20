@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → `CLAUDE.md` → `docs/rules-check.md` → `docs/ideas.md` → `chat.md` (latest entry).
-Last updated: 2026-10-20, by the Werewolf project lead (builder agent), after the QA agent's 9 fixes.
+Last updated: 2026-10-20, by the design-pass builder agent (after the QA agent's 9 fixes).
 
 ## Goal right now
 A no-moderator Werewolf / Mafia companion on Tim's iPhone. It covers:
@@ -24,6 +24,7 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 | Online | **Done and wired** with the shared `_online` module (`js/online.js` copied unchanged, adapter `js/game-online.js`). Create room → code → join → host sets open seats to computer → start. Measured: two-browser game played to the end twice on the real Firebase project, including a reload plus "Resume online" mid-game. |
 | Art | Done. Original SVG role cards (werewolf + mafia themes), card back, icon. |
 | Docs | `docs/rules-check.md` (sources), `docs/ideas.md` (17 ideas: 11 built, 6 skipped). |
+| Design pass (10-20) | Done. Laptop: player tiles 4 per row at 84 px (they were one 60 px strip), night centred at 900 px with the hidden log column removed, bigger setup chips and home menu. iPhone: the deal card shrinks with screen height so "Hide · pass on" fits (it was cut off). Disabled main buttons are a coloured outline with readable text (were muddy fills). Hint button and ? marks have 40 px taps. Online name field and "Create a room" are full width. Laptop setup shows only "Deal cards". Shots: `scratchpad/design/werewolf/before|after/`. |
 | QA fixes (10-20) | Done, all 9 from the QA agent: the night panel scrolls with Done pinned (20 players: Done at y=647 of 659), a dead human Hunter chooses their own shot vs computer, taps are ignored for 380 ms after a screen change (double taps), Settings has Leave room online, damaged saves fall back to defaults (and a broken game goes home with a toast), resume shows your card, duplicate names are blocked with a toast. |
 
 ## Measured numbers
@@ -65,6 +66,7 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 - Real iPhone speech voice and quality (headless runs have no speech engine). Narration timing was verified only in `?fast` mode.
 - Online with three or more humans, and host takeover after the host disappears. Both are covered by the shared module's own tests, not by Werewolf tests.
 - Day timer spoken warnings: built, but only checked as code, not listened to.
+- Design pass: the game-over screen on laptop was not re-shot (`screens.mjs` step 13 shows Day 1 on laptop, a script quirk). A hint toast can linger for 2.4 s onto the next screen (left as is; a fix would change behaviour).
 
 ## Authorized next steps
 - None pending from Tim. Possible: Sheriff and extra roles (parked in ideas.md #16).
