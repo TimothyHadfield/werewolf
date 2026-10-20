@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Werewolf Art Preview</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 16px; background: #0f1117; color: #e8eaf0; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 14px; color: #969db4; font-weight: 600; margin: 20px 0 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; max-width: 1000px; }
+  figure { margin: 0; text-align: center; }
+  figure svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 4px 10px rgba(0,0,0,.45)); }
+  figcaption { color: #969db4; font-size: 12px; margin-top: 4px; }
+  .icons { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .icons img { border-radius: 12px; }
+</style>
+</head>
+<body>
+<h1>Card art preview</h1>
+<div id="out"></div>
+<h2>Icons</h2>
+<div class="icons" id="icons">
+  <img src="icon.svg" width="96" height="96" alt="icon 96">
+  <img src="icon.svg" width="32" height="32" alt="icon 32">
+  <img src="apple-touch-icon.png" width="60" height="60" alt="apple touch icon">
+</div>
+<script src="js/art.js"></script>
+<script>
+  var keys = WWArt.ROLES;
+  var out = document.getElementById("out");
+  ["werewolf", "mafia"].forEach(function (theme) {
+    var h = document.createElement("h2");
+    h.textContent = theme === "mafia" ? "Mafia theme" : "Werewolf theme";
+    out.appendChild(h);
+    var g = document.createElement("div");
+    g.className = "grid";
+    keys.forEach(function (k) {
+      g.insertAdjacentHTML("beforeend", "<figure>" + WWArt.role(k, theme, 120) + "<figcaption>" + k + "</figcaption></figure>");
+    });
+    g.insertAdjacentHTML("beforeend", "<figure>" + WWArt.back(120) + "<figcaption>back</figcaption></figure>");
+    out.appendChild(g);
+  });
+  document.getElementById("icons").insertAdjacentHTML("beforeend", WWArt.moon(32) + WWArt.sun(32) + WWArt.moon(16) + WWArt.sun(16));
+</script>
+</body>
+</html>
