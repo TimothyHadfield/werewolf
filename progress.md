@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → `CLAUDE.md` → `docs/rules-check.md` → `docs/ideas.md` → `chat.md` (latest entry).
-Last updated: 2026-10-20, by the sound & effects builder agent (after the design pass).
+Last updated: 2026-10-20, by the table-look builder agent.
 
 ## Goal right now
 A no-moderator Werewolf / Mafia companion on Tim's iPhone. It covers:
@@ -26,6 +26,7 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 | Docs | `docs/rules-check.md` (sources), `docs/ideas.md` (17 ideas: 11 built, 6 skipped). |
 | Design pass (10-20) | Done. Laptop: player tiles 4 per row at 84 px (they were one 60 px strip), night centred at 900 px with the hidden log column removed, bigger setup chips and home menu. iPhone: the deal card shrinks with screen height so "Hide · pass on" fits (it was cut off). Disabled main buttons are a coloured outline with readable text (were muddy fills). Hint button and ? marks have 40 px taps. Online name field and "Create a room" are full width. Laptop setup shows only "Deal cards". Shots: `scratchpad/design/werewolf/before|after/`. |
 | Sound & effects (10-20) | Done. Shared `js/fx.js` (copied unchanged from `_fx/`) + `js/game-fx.js` (this game's event → sound map, two custom sounds, animations, celebrations). Driven by state diffs in `render()`, so table, vs computer and online all sound the same. Settings has a "Sound & effects" group. Test `tests/fx.test.js` (4 tests). |
+| Table look (10-20) | Done. Every play screen is a dark-wood table (shared kit `css/table.css` + `js/table.js`, copied unchanged from `_table/`). Players sit round a rounded-rectangle table from your seat (`ring()` / `layoutTables()` in app.js): one real-ratio card each, name plate, odds pill; your card peeked face up at the bottom (vs computer / online). Dead cards turn face up with a 3-D turn and grey out. News, claims and the Seer's answer are paper slips in the middle; night darkens the same table. Deal: the role deck is a stack that thins per card, top-left, and deals onto the table. Sizes: s-l ≤8, s-m ≤12, s-s 13-20 (markers laid on the card); short (landscape) and ≤360 px rules. Shots: `scratchpad/table/werewolf/before|after5/`. |
 | QA fixes (10-20) | Done, all 9 from the QA agent: the night panel scrolls with Done pinned (20 players: Done at y=647 of 659), a dead human Hunter chooses their own shot vs computer, taps are ignored for 380 ms after a screen change (double taps), Settings has Leave room online, damaged saves fall back to defaults (and a broken game goes home with a toast), resume shows your card, duplicate names are blocked with a toast. |
 
 ## Measured numbers
@@ -46,6 +47,8 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 - "make sure that everything works properlly without errors… get everything right like rules and artwork and specific numbers"
 - $0, static GitHub Pages, no copyrighted art or rule text.
 - (2026-10-20) "add opptional sounds you can add to the games that reflect what's happening in the game accurately as well as win celebrations, and other fun annimations to go along with everything. Just make sure everything is customizable in the settings so the user can play as preffered."
+
+- (2026-10-20) "could you also make sure that each of the games also have a look to them so that the game (either board or card layout) looks almost identical to how the board or card layout looks like in real life, so it's easy to understand if you've already played it before, and also so it feels more like you're actually playing in real life rather than you're playing it online. Even things like how youre cards or other things are laid out infront of you, make it look like they are actual cards laid out similar to how it looks like in real life. Make the decks look like actual decks. Make the board have the same design as it does in real life with the same layouts. It should look kind of like you're looking through a camera that is connected to a user's glasses that is playing in real life (not actually, but the layout and style of everything should be similar)."
 
 ## Event → sound map (`js/game-fx.js`)
 | Event | Sound | Animation |
@@ -79,6 +82,10 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 - `js/fx.js` is shared: never edit it here; re-copy from `_fx/fx.js`. Game sounds live in `js/game-fx.js`. Night sounds must never give away a role: no potion sound at the table, the "found a wolf" sparkle only on the Seer's own phone, other players' night moves are silent.
 - Headless WebKit runs only one animation frame while a phone-view `--eval` awaits, so confetti looks stuck in the corners there. Use `--engine chrome` for celebration screenshots.
 - Double-tap guard: taps within `380 * FAST` ms of a screen change are ignored (19 ms in `?fast`). Test scripts must pause about 30 ms before each tap; to test the guard itself, run **without** `?fast` (QA script `scratchpad/qaL/t5-dbltap.mjs` with `WURL=http://localhost:8620/ TD=420`).
+- **WebKit draws hidden back faces** (`backface-visibility` fails on these cards, worst under filters). Every card shows ONE face in the DOM at a time: `seatCard()` renders back-only, or front + `.ww-turn` for a fresh turn, and `turnCard()` swaps faces at edge-on (with a timer fallback so no card is left edge-on). The deal `.flip` renders only the back when closed and only the front when open; the click handler swaps at 110 ms.
+- `css/table.css` and `js/table.js` are shared: never edit them here; re-copy from `_table/`.
+- Seat positions are set in JS after every render (`afterDraw()` → `layoutTables()`, also on resize). Selectors `.pbtn[data-id]`, `.pane .pbtn`, `.flip`, `.odds` are kept for drive/QA scripts and game-fx.
+- Headless WebKit with confetti can delay the card-turn timers by over 1.5 s; screenshot game over after ~3.5 s.
 - Until 10-20 the `?fast` regex held a stray backspace character (from a Python patch with `\b` in a normal string), so `?fast` silently ran at full speed. Write regexes in patch scripts with raw strings.
 
 ## Decisions
@@ -86,6 +93,7 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 - The online snapshot's `toAct` technically shows who is acting at night (devtools only). The UI never shows it. The same class of risk as "the host's browser holds full state", which the shared module already accepts.
 - Wolves' hint shows what the *table* believes (public odds), not the truth they know.
 - Hint, vote record and day timer are plain versions (toast, table, chip); Tim may restyle.
+- Table look (builder's picks, Tim may change): dark wood in both themes; a top-down view (cards upright, not rotated to face each seat) for readability; rounded-rectangle seating; deck top-left on the deal screen; 13+ players at game over show the role without "· dead" (the struck-through plate shows it).
 
 ## NOT verified
 - Real iPhone speech voice and quality (headless runs have no speech engine). Narration timing was verified only in `?fast` mode.
@@ -94,6 +102,8 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 - Design pass: the game-over screen on laptop was not re-shot (`screens.mjs` step 13 shows Day 1 on laptop, a script quirk). A hint toast can linger for 2.4 s onto the next screen (left as is; a fix would change behaviour).
 
 - Sound & effects: no sound was heard (headless has no Web Audio on Windows WebKit); sounds checked by spying on `FX.play` during full drives. Real iPhone sound, silent switch and speech + sound together not checked. Online sounds checked only by code path (the same `render()` diff), not in a two-browser run. Storage-blocked behaviour relies on fx.js's own tests.
+
+- Table look: not checked on a real iPhone or in a live online two-browser game (online unit tests pass; seat screens share `ring()`). At 320 px with 20 players a few name plates touch (box overlap 4-12 measured); landscape centre text scrolls. The vs-computer "Your card" is still the existing sheet, and the phone Hint button still wraps to a second row.
 
 ## Authorized next steps
 - None pending from Tim. Possible: Sheriff and extra roles (parked in ideas.md #16).

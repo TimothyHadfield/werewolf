@@ -1,5 +1,11 @@
 # Werewolf / Mafia — session log
 
+## 2026-10-20 — table look (builder agent)
+- **Asked** (Tim via manager): make each game look "almost identical to how the board or card layout looks like in real life … like you're looking through a camera that is connected to a user's glasses" (full quote in progress.md).
+- **Built**: seats round a dark-wood table from your seat (`ring()`, `layoutTables()`, `afterDraw()` in app.js) for table day/night/ready/over, vs computer and online; real-ratio cards, 3-D turn when a card is shown; paper news/claim slips in the middle; role deck stack on the deal screen that thins and deals; shared `css/table.css` + `js/table.js` and `fx.js` 1.0.3 copied byte for byte. Research: `scratchpad/table/werewolf/real.md`.
+- **Verified**: `node tests/run.js` 37 passed (before and after merge). `tools/qa/drive-table.js` + `drive-cpu.js` played to the end in WebKit iPhone, 0 errors. Shots at 393, 1280, 320 and 659×393 landscape: 0 console errors, no page overflow (`scratchpad/table/werewolf/after5/`). Two read-only reviewer rounds; fixed blank deal card, landscape stacking, cards left edge-on, clipped labels.
+- **Open**: see NOT verified (real iPhone, live online run, 320 px with 20 players is tight).
+
 ## 2026-10-20 — sound & effects (builder agent)
 - **Asked** (Tim via manager): "add opptional sounds … win celebrations, and other fun annimations … customizable in the settings".
 - **Built**: `js/fx.js` (shared copy), `js/game-fx.js` (event → sound map in progress.md, custom `nightFall` howl and `dayBreak` chime), hook in `render()` that diffs game states for every mode, error sound on refused taps, timer tick/alarm, "Sound & effects" group in Settings (styled like the other rows in `styles.css`).
