@@ -420,6 +420,7 @@
       case "unclaim": {
         const i = a.index;
         if (!(i >= 0 && i < g.claims.length)) fail("No such claim");
+        if (seats && g.claims[i].by !== a.seat) fail("You can only take back your own claim");
         const c = g.claims.splice(i, 1)[0];
         g.log.push({ t: "unclaim", day: g.day, by: c.by, target: c.target });
         return;

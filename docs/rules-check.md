@@ -20,6 +20,16 @@ Werewolf has no single official rulebook. The app follows three published versio
 | Village wins | all wolves dead | all wolves dead | all mafia dead | all sources | checked |
 | Wolves win (`win`) | wolves ≥ others ("can't be outvoted") | every villager dead | mafia ≥ others | UW rulebook; MH PDF; Wikipedia | checked — a real difference, so it's a switch |
 
+## Rare moments (edge pass 2026-10-20, tests in `tests/edge.test.js`)
+
+| Moment | Rule in the app | Source | Status |
+|---|---|---|---|
+| The last wolf and the last villager die the same night (wolf kill + Witch poison) | Village wins: the village's goal (every wolf dead) is met, and the wolves' goal is checked second | No rulebook covers it (MH and UW only state each side's goal) | **app choice**, flagged for Tim |
+| Everyone skips the vote, or skips tie the top player | Nobody goes out | Same as "tied vote" above | checked |
+| Voting out the Hunter brings the wolves to equal numbers | The Hunter shoots first; the game is decided after the shot | MH PDF ("immediately"), UW summary | checked |
+| Doctor / Bodyguard with nobody they may guard (only someone they guarded last night is left) | They wake, guard nobody, and close their eyes | Follows from the "not two nights running" rule | checked |
+| A seat taking back a claim (seats mode) | Only your own claim | — (app rule; online already refused it) | checked |
+
 ## Roles
 
 | Role | Rule in the app | Sources | Status |

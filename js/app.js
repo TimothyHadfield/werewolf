@@ -10,6 +10,8 @@
   const KEY = "werewolf:v1";
   const BOT_NAMES = ["Ada", "Bo", "Cy", "Dee", "Eli", "Fay", "Gus", "Hal", "Ivy", "Jo", "Kit", "Lou", "Max", "Nia", "Oz", "Pia", "Rex", "Sky", "Tess"];
 
+  // At most 14 characters, never cutting an emoji (a surrogate pair) in half.
+  function cut14(v) { let s = String(v).slice(0, 14); const c = s.charCodeAt(s.length - 1); if (c >= 0xd800 && c <= 0xdbff) s = s.slice(0, -1); return s; }
   // ------------------------------------------------------------ storage
   const DEFAULT_STORE = {
     settings: { theme: "werewolf", ruleset: "ultimate", opts: Object.assign({}, W.RULESETS.ultimate.opts), voice: true, rate: "normal", level: "normal", timer: 0 },
@@ -39,7 +41,7 @@
     const o = Object.assign({}, W.DEFAULT_OPTS);
     if (obj(st.opts)) Object.keys(W.DEFAULT_OPTS).forEach((k) => { if (typeof st.opts[k] === typeof W.DEFAULT_OPTS[k]) o[k] = st.opts[k]; });
     out.settings.opts = o;
-    out.names = Array.isArray(s.names) ? s.names.slice(0, 20).map((n) => (typeof n === "string" ? n.slice(0, 14) : "")) : [];
+    out.names = Array.isArray(s.names) ? s.names.slice(0, 20).map((n) => (typeof n === "string" ? cut14(n) : "")) : [];
     out.count = int(s.count, 4, 20, D.count);
     out.cpuCount = int(s.cpuCount, 5, 12, D.cpuCount);
     out.onCount = int(s.onCount, 5, 12, D.onCount);
@@ -326,6 +328,8 @@
   }
   function setupCount() { return ui.setupMode === "cpu" ? S.cpuCount : ui.setupMode === "online" ? S.onCount : S.count; }
   const fmtPts = (x) => (x > 0 ? "+" : "") + x;
+  // The level the computers in this game were dealt with (Settings changes only new games).
+  const botLevel = (g) => { const b = g.players.find((p) => p.kind === "bot" && p.level); return b ? b.level : S.settings.level; };
   const levelName = (l) => ({ easy: "Easy", normal: "Normal", smart: "Smart" }[l] || "Normal");
 
   // ------------------------------------------------------------ game (both modes)
@@ -453,35 +457,67 @@
         '" data-act="' + (opts.act || "sel") + '" data-id="' + p.id + '" data-pos="' + pos + '" style="--r:' + j.r + 'deg" ' + (can ? "" : "disabled") + ">" +
         seatCard(g, p, faceUp) + '<span class="pn tbl-plate">' + esc(p.name) + "</span>" + (sub ? '<span class="ps">' + sub + "</span>" : "") + odd + "</button>";
     }).join("");
-    return '<div class="ww-table tbl-surface tbl-wood-dark ' + size + (ids.length ? " picking" : "") + (opts.night ? " is-night" : "") + '">' + seats +
+    return '<div class="ww-table tbl-surface tbl-wood-dark ' + size + (ids.length ? " picking" : "") + (opts.night ? " is-night" : "") + '" data-size="' + size + '">' + seats +
       '<div class="ww-center" data-keep-scroll><div class="ww-cin">' + (center || "") + "</div></div></div>";
   }
   function playScreen(table, strip, foot, cls) {
     return '<div class="day ww-play' + (cls ? " " + cls : "") + '">' + (strip || "") + table + (foot ? '<div class="day-foot">' + foot + "</div>" : "") + "</div>";
   }
   // Seats evenly spaced (by distance, not angle) round a rounded-rectangle table edge.
-  function ringPoints(n, rx, ry) {
+  // ux / uy (optional): measure distance in seat widths / heights, so a crowded table puts
+  // fewer of its wide seats on the top and bottom edges and more down the sides.
+  function ringPoints(n, rx, ry, ux, uy) {
+    ux = ux || 1; uy = uy || 1;
     const P = 4, M = 720, t0 = Math.PI / 2;
     const f = (t) => { const c = Math.cos(t), s = Math.sin(t); return { x: rx * Math.sign(c) * Math.pow(Math.abs(c), 2 / P), y: ry * Math.sign(s) * Math.pow(Math.abs(s), 2 / P) }; };
     const pts = [], len = [0];
     for (let k = 0; k <= M; k++) pts.push(f(t0 + (2 * Math.PI * k) / M));
-    for (let k = 1; k <= M; k++) len.push(len[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
+    for (let k = 1; k <= M; k++) len.push(len[k - 1] + Math.hypot((pts[k].x - pts[k - 1].x) / ux, (pts[k].y - pts[k - 1].y) / uy));
     const out = [];
     let k = 0;
     for (let i = 0; i < n; i++) { const want = (len[M] * i) / n; while (k < M && len[k + 1] < want) k++; out.push(pts[k]); }
     return out;
   }
+  // Seats that would sit on top of each other (a small or short screen) step down to the next
+  // smaller card size, so every name plate and marker stays readable.
+  const SIZES = ["s-l", "s-m", "s-s"];
   function layoutTables() {
     document.querySelectorAll(".ww-table").forEach((t) => {
+      if (!t.querySelector(".ww-seat")) return;
+      // Try each size, first evenly spaced, then spaced by seat size; keep the first that fits
+      // (or, if none does, the least crowded way at the smallest size).
+      let best = null;
+      for (let k = Math.max(0, SIZES.indexOf(t.dataset.size || "s-l")); k < SIZES.length; k++) {
+        for (const bySize of [false, true]) {
+          SIZES.forEach((c, i) => t.classList.toggle(c, i === k));
+          placeSeats(t, bySize);
+          const n = seatsOverlap(t);
+          if (!n) return;
+          if (k === SIZES.length - 1 && (!best || n < best.n)) best = { n, bySize };
+        }
+      }
+      if (best && !best.bySize) placeSeats(t, false);
+    });
+  }
+  function seatsOverlap(t) {
+    const r = [...t.querySelectorAll(".ww-seat")].map((s) => ({ x: s.offsetLeft, y: s.offsetTop, w: s.offsetWidth, h: s.offsetHeight }));
+    let n = 0;
+    for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
+      const a = r[i], b = r[j];
+      if (Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 1 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 1) n++;
+    }
+    return n;
+  }
+  function placeSeats(t, bySize) {
+    {
       const seats = [...t.querySelectorAll(".ww-seat")];
-      if (!seats.length) return;
       const W = t.clientWidth, H = t.clientHeight;
       let sw = 0, sh = 0, mh = 0;
       seats.forEach((s) => { if (s.classList.contains("me")) mh = s.offsetHeight; else { sw = Math.max(sw, s.offsetWidth); sh = Math.max(sh, s.offsetHeight); } });
       if (!mh) mh = sh;
       const pad = 3;
       const cy = H / 2 + (sh - mh) / 4;
-      const pts = ringPoints(seats.length, Math.max(8, W / 2 - sw / 2 - pad), Math.max(8, H / 2 - (sh + mh) / 4 - pad));
+      const pts = ringPoints(seats.length, Math.max(8, W / 2 - sw / 2 - pad), Math.max(8, H / 2 - (sh + mh) / 4 - pad), bySize ? sw : 1, bySize ? sh : 1);
       seats.forEach((s) => {
         const p = pts[+s.dataset.pos] || { x: 0, y: 0 };
         const w = s.offsetWidth, h = s.offsetHeight;
@@ -491,7 +527,7 @@
       });
       const c = t.querySelector(".ww-center");
       if (c) { c.style.left = c.style.right = Math.round(sw + 8) + "px"; c.style.top = Math.round(sh + 6) + "px"; c.style.bottom = Math.round(mh + 6) + "px"; }
-    });
+    }
   }
   // After each draw: lay the seats out, turn newly shown cards with a 3-D flip, deal from the deck.
   function afterDraw() {
@@ -543,6 +579,8 @@
     ui.nightStage = "talk";
     narrate(lines, () => {
       if (my !== ui.gen) return;
+      const N = S.game.night;
+      if (N && (step === "doctor" || step === "bodyguard") && N.picked[step]) { finishStep(); return; }
       if (W.stepIsIdle(g, step)) {
         // Nobody to wake (or wolves just meet): wait as long as a real turn would.
         ui.nightStage = "wait";
@@ -624,9 +662,11 @@
     }
     const ids = W.validTargets(g, step);
     const label = step === "wolf" ? "Kill" : "Protect";
+    if (!ids.length && step !== "wolf") return { center: noGuard(), ids, opts: {}, foot: '<button class="btn primary big" data-act="nightDone">Done</button>' };
     return { center: "", ids, opts: { sel: ui.sel }, foot: '<button class="btn primary big" data-act="nightPick" ' + (ui.sel == null ? "disabled" : "") + ">" + label + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button>" };
   }
 
+  const noGuard = () => '<div class="muted" style="text-align:center;font-size:14px">Nobody can be protected tonight.</div>';
   function deathLines(g, ids, how) {
     const lines = [];
     if (!ids.length) { lines.push(how === "night" ? "Nobody died last night." : "Nobody was voted out."); return lines; }
@@ -684,7 +724,7 @@
     const stats = '<div class="stat-line"><span>Alive <b>' + alive + "</b></span><span>" + esc(TH().wolves) + " left <b>" + wolvesLeftText(g) + "</b></span>" +
       (cpu ? "<span>You: <b class=\"" + (me.role === "wolf" ? "tagw" : "tagg") + "\">" + esc(RN(me.role)) + "</b>" + (me.alive ? "" : " (dead)") + "</span>" : "") +
       (!cpu && g.phase === "day" && S.settings.timer ? timerChip(g) : "") +
-      '<span style="margin-left:auto">Wolf odds ' + q("odds") + "</span>" + (cpu && me.alive && g.phase === "day" ? ' <button class="btn ghost" style="min-height:40px;padding:4px 14px" data-act="hint">Hint</button>' : "") + "</div>";
+      '<span style="margin-left:auto">Wolf odds ' + q("odds") + "</span></div>";
     // hunter pending
     const hunter = g.pendingHunters[0];
     let main = "";
@@ -708,8 +748,9 @@
         ids = me.alive && myVote == null ? g.players.filter((p) => p.alive && p.id !== seat).map((p) => p.id) : [];
         main += claimsHtml;
         const pend = pendingOf(g).length;
-        if (me.alive && myVote == null) foot = '<button class="btn" data-act="cpuClaim">Claim</button><button class="btn" data-act="cpuSkip">Skip</button><button class="btn warm" data-act="cpuVote" ' + (ui.sel == null ? "disabled" : "") + ">Vote" + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button>";
-        else foot = '<div class="muted" style="flex:1;text-align:center;padding:10px">' + (me.alive ? "You voted. " : "") + "Votes in: " + (alive - pend) + " of " + alive + "</div>";
+        const hintBtn = me.alive ? '<button class="btn" style="flex:0 0 auto" data-act="hint">Hint</button>' : "";
+        if (me.alive && myVote == null) foot = hintBtn + '<button class="btn" data-act="cpuClaim">Claim</button><button class="btn" data-act="cpuSkip">Skip</button><button class="btn warm" data-act="cpuVote" ' + (ui.sel == null ? "disabled" : "") + ">Vote" + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button>";
+        else foot = hintBtn + '<div class="muted" style="flex:1;text-align:center;padding:10px">' + (me.alive ? "You voted. " : "") + "Votes in: " + (alive - pend) + " of " + alive + "</div>";
         void voted;
       } else {
         ids = g.players.filter((p) => p.alive).map((p) => p.id);
@@ -724,7 +765,7 @@
     }
     const body = playScreen(ring(g, ids, ropts, news + main), stats, foot);
     const title = g.phase === "dusk" ? "Evening " + g.day : "Day " + Math.max(1, g.day);
-    return gameShell(g, title, ui.mode === "online" ? "Room " + esc(ui.osnap.code || "") : cpu ? levelName(S.settings.level) + " computers" : "", body);
+    return gameShell(g, title, ui.mode === "online" ? "Room " + esc(ui.osnap.code || "") : cpu ? levelName(botLevel(g)) + " computers" : "", body);
   }
   // ---- day timer (table mode)
   let timerInt = null;
@@ -929,6 +970,7 @@
     }
     const ids = W.validTargets(g, step);
     const extra = step === "wolf" ? pendingWolfInfo(g) : "";
+    if (!ids.length && step !== "wolf") return { center: noGuard(), ids, opts: {}, foot: '<button class="btn primary big" data-act="cpuDone">Close eyes</button>' };
     return { center: extra, ids, opts: { sel: ui.sel }, foot: '<button class="btn primary big" data-act="cpuPick" ' + (ui.sel == null ? "disabled" : "") + ">" + (step === "wolf" ? "Kill" : "Protect") + (ui.sel != null ? " " + esc(g.players[ui.sel].name) : "") + "</button>" };
   }
 
@@ -1060,6 +1102,7 @@
   function openSheet(title, body, foot) {
     $sheet.innerHTML = '<div class="sheet"><div class="sheet-head"><h2>' + title + '</h2><button class="icon-btn" data-act="closeSheet" aria-label="Close">' + IC.close + '</button></div><div class="sheet-body">' + body + "</div>" + (foot ? '<div class="sheet-foot">' + foot + "</div>" : "") + "</div>";
     $sheet.classList.remove("hidden");
+    syncHistory();
   }
   function closeSheet() { $sheet.classList.add("hidden"); $sheet.innerHTML = ""; ui.sheet = null; }
   const HELP = {
@@ -1155,7 +1198,7 @@
   // ------------------------------------------------------------ events
   document.addEventListener("click", (ev) => {
     const el = ev.target.closest("[data-act]");
-    if (!el) { if (ev.target === $sheet) closeSheet(); return; }
+    if (!el) { if (ev.target === $sheet) handle("closeSheet", $sheet, null); return; }
     const a = el.dataset.act;
     // Ignore a tap that lands just after the screen changed under the finger (double taps).
     if (Date.now() - (ui.changedAt || 0) < 380 * FAST && a !== "closeSheet" && a !== "tab" && $app.contains(el)) return;
@@ -1164,14 +1207,14 @@
     ui.scrollTop = sc ? sc.scrollTop : 0;
     try { handle(a, el, id); } catch (e) { oops(e.message || String(e)); }
   });
-  function leaveGame() { ui.gen++; window.Narrator.stop(); clearTimeout(pumpTimer); }
+  function leaveGame() { ui.gen++; window.Narrator.stop(); clearTimeout(pumpTimer); clearInterval(timerInt); if (ui.timer) ui.timer.running = false; }
   function handle(a, el, id) {
     switch (a) {
       case "home": if (ui.view === "online") { ui.view = "home"; render(); return; } leaveGame(); ui.view = "home"; ui.scrollTop = 0; closeSheet(); render(); return;
       case "back": ui.view = ui.view === "setup" && ui.setupMode === "online" ? "online" : "home"; render(); return;
       case "settings": settingsSheet(); return;
       case "closeSheet": {
-        if (ui.sheet === "cpuCard") return;
+        // (Your card's × closes it too: the Ready screen's Start button shows it again.)
         const from = ui.sheet === "help" ? ui.helpFrom : null;
         closeSheet();
         if (from === "settings") { settingsSheet(); return; }
@@ -1336,9 +1379,9 @@
   });
   document.addEventListener("input", (ev) => {
     const t = ev.target;
-    if (t.dataset.name != null) { S.names[+t.dataset.name] = t.value.slice(0, 14); save(); }
+    if (t.dataset.name != null) { S.names[+t.dataset.name] = cut14(t.value); save(); }
   });
-  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !$sheet.classList.contains("hidden") && ui.sheet !== "cpuCard") closeSheet(); });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !$sheet.classList.contains("hidden")) handle("closeSheet", $sheet, null); });
 
   function resumeTable() {
     const g = S.game;
@@ -1354,7 +1397,38 @@
     try { afterDraw(); } catch (e) { /* the table look never breaks the game */ }
     if (fxEv && fxEv.length) { try { window.WWFX.fire(fxEv); } catch (e) { /* effects never break the game */ } }
     if (ui.view === "game" && ui.mode === "table" && S.game && S.game.phase === "night" && ui.nightKey !== nightKey(S.game)) enterNightStep();
+    syncHistory();
   };
+  // ---- the phone's Back (swipe / browser button) goes to the screen you were just on,
+  // never out of the app: one history entry per level below the menu.
+  function screenDepth() {
+    const v = ui.view;
+    const sheet = $sheet.classList.contains("hidden") ? 0 : 1; // an open sheet is one more step
+    if (v === "home") return sheet;
+    if (v === "setup") return (ui.setupMode === "online" ? 2 : 1) + (ui.setupStep === 2 ? 1 : 0) + sheet;
+    return 1 + sheet; // game, lab, rules, online
+  }
+  ui.hd = 0; ui.popSkip = 0;
+  function syncHistory() {
+    if (!window.history || !history.pushState) return;
+    const d = screenDepth();
+    try {
+      while (ui.hd < d) { ui.hd++; history.pushState({ ww: ui.hd }, ""); }
+      if (ui.hd > d) { ui.popSkip++; history.go(d - ui.hd); ui.hd = d; }
+    } catch (e) { /* history blocked: Back simply leaves, as before */ }
+  }
+  window.addEventListener("popstate", () => {
+    if (ui.popSkip) { ui.popSkip--; return; }
+    ui.hd = Math.max(0, ui.hd - 1);
+    if (!$sheet.classList.contains("hidden")) {
+      // An open sheet closes first.
+      handle("closeSheet", $sheet, null); return;
+    }
+    if (ui.view === "setup" && ui.setupStep === 2) { ui.setupStep = 1; render(); return; }
+    if (ui.view === "setup" && ui.setupMode === "online") { ui.view = "online"; render(); return; }
+    if (ui.view !== "home") { handle("home", $app, null); return; }
+    render();
+  });
   // What changed in the game since the last screen (any mode: your taps, computers, online players).
   function fxDiff() {
     if (!FX || !window.WWFX) return null;
@@ -1409,7 +1483,7 @@
     }
     render();
   }
-  function onlineName() { return ((S.names[0] || "").trim() || "Player").slice(0, 14); }
+  function onlineName() { return cut14((S.names[0] || "").trim() || "Player"); }
   function renderOnline() {
     const body = '<div class="page online-pick" style="max-width:520px">' +
       '<p class="label">Your name</p><div class="names"><div class="nm"><span class="seat">' + IC.play.replace("<svg", '<svg width="16" height="16"') + '</span><input type="text" data-name="0" maxlength="14" placeholder="Your name" value="' + esc(S.names[0] || "") + '" aria-label="Your name" autocomplete="off"></div></div>' +
@@ -1479,6 +1553,16 @@
     render();
     if (r) (closing ? r.close() : r.leave()).catch(() => {});
   }
+
+  // The same game open in two tabs: when the other tab saves, take its newer state here, so this
+  // (now stale) tab can never write an older game over it.
+  window.addEventListener("storage", (e) => {
+    if (e.key !== KEY) return;
+    const playing = ui.view === "game" && ui.mode !== "online";
+    S = load();
+    if (playing) { leaveGame(); closeSheet(); ui.view = "home"; render(); toast("This game moved on in another tab."); }
+    else if (ui.view === "home") render();
+  });
 
   // Debug/test hook (used by headless checks): window.__ww
   window.__ww = { S: () => S, ui, W, room: () => room };

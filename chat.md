@@ -1,5 +1,11 @@
 # Werewolf / Mafia — session log
 
+## 2026-10-20 — edge pass (builder agent)
+- **Asked** (Tim via manager): "making each game perfect especially in scenarios that the game doesn't expect or are a little weird" (full quote in progress.md); plus the known 320 px / 20-player plates and the phone Hint row.
+- **Built**: re-copied `_table` kit 1.0.1 and `fx.js` (`.gitattributes` keeps them byte for byte); engine refuses unclaiming another seat's claim; app.js: no-target Doctor/Bodyguard Done, reload after a Doctor pick carries on, phone Back steps back inside the app, two-tab guard, timer stops on leaving, game's real computer level, emoji-safe name cut, Hint in the footer, seats auto-shrink until none overlap; 320 px `--sw` 48 px. Rare rules in `docs/rules-check.md`.
+- **Verified**: `tests/edge.test.js` 9 (unclaim failed first); `node tests/run.js` 46 passed. 46 scenarios in headless WebKit (scripts + `scenarios.md` in the manager's scratchpad `edge/werewolf/`): 14 failed before, all pass after; random double-tap drives played to a winner with 0 errors.
+- **Open**: see NOT verified (real iPhone back-swipe, long background, online two-browser of the new code).
+
 ## 2026-10-20 — table look (builder agent)
 - **Asked** (Tim via manager): make each game look "almost identical to how the board or card layout looks like in real life … like you're looking through a camera that is connected to a user's glasses" (full quote in progress.md).
 - **Built**: seats round a dark-wood table from your seat (`ring()`, `layoutTables()`, `afterDraw()` in app.js) for table day/night/ready/over, vs computer and online; real-ratio cards, 3-D turn when a card is shown; paper news/claim slips in the middle; role deck stack on the deal screen that thins and deals; shared `css/table.css` + `js/table.js` and `fx.js` 1.0.3 copied byte for byte. Research: `scratchpad/table/werewolf/real.md`.

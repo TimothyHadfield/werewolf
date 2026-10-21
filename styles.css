@@ -436,7 +436,7 @@ input[type=text]:focus { outline: none; border-color: var(--accent); }
 .ww-table.s-s .ww-seat.has-odds .ps { margin-top: -13px; }
 /* the narrowest phones: 13-20 seats need a little less room each */
 @media (max-width: 360px) {
-  .ww-table.s-s { --cw: 20px; --sw: 52px; }
+  .ww-table.s-s { --cw: 20px; --sw: 48px; }
   .ww-table.s-s .ww-seat .pn.tbl-plate { font-size: 9px; padding: 0 3px; }
   .ww-table.s-m { --cw: 32px; --sw: 64px; }
 }
