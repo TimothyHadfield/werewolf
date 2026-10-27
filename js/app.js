@@ -497,10 +497,10 @@
     const last = fitMemo.get(sig);
     if (last && Math.abs(last.H - H) < 48 && applyFit(t, last.cls, last.k, last.bySize, 0)) return;
     const start = Math.max(0, SIZES.indexOf(t.dataset.size || "s-l"));
-    let best = null;
-    // First try keeping the whole news in the middle in view; then let a long list scroll in a
-    // roomy middle; last, size the seats on their own.
-    for (const roomy of [2, 1, 0]) {
+    // Biggest card for one way of treating the middle. A smaller card style (markers laid on the
+    // card) only wins when the bigger style's card is still small (a phone) and it is clearly bigger.
+    const tierBest = (roomy) => {
+      let best = null;
       for (let c = start; c < SIZES.length; c++) {
         for (const bySize of [false, true]) {
           let lo = 0.7, hi = 2.4, got = null;
@@ -508,15 +508,18 @@
             got = lo;
             for (let it = 0; it < 7; it++) { const mid = (lo + hi) / 2; if (applyFit(t, c, mid, bySize, roomy)) { got = mid; lo = mid; } else hi = mid; }
           }
-          if (got != null) {
-            const cw = fitBase(t, c).cw * got;
-            // A smaller style only wins if it gives a clearly bigger card.
-            if (!best || cw > best.cw * 1.08) best = { cls: c, k: got, bySize, cw, roomy };
-          }
+          if (got == null) continue;
+          const cw = fitBase(t, c).cw * got;
+          if (!best || (c === best.cls ? cw > best.cw : best.cw < 56 && cw > best.cw * 1.08)) best = { cls: c, k: got, bySize, cw, roomy };
         }
       }
-      if (best) break;
-    }
+      return best;
+    };
+    // First keep all the news in the middle in view. If that leaves small cards, letting a long
+    // list scroll in a roomy middle may give clearly bigger ones. Last, size the seats on their own.
+    let best = tierBest(2);
+    if (!best || best.cw < 40) { const b1 = tierBest(1); if (b1 && (!best || b1.cw > best.cw * 1.3)) best = b1; }
+    if (!best) best = tierBest(0);
     if (!best) {
       // Nothing fits (a tiny screen): the smallest style at its smallest size, the least crowded way.
       const c = SIZES.length - 1;
