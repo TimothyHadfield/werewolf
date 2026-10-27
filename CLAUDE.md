@@ -17,4 +17,5 @@ Read `progress.md` first (START HERE). Tim's global rules (`~/.claude/CLAUDE.md`
 - QA scripts in `tools/qa/` (run them from a scratch folder; they write PNGs to the current folder):
   - `screens.mjs [url]`: every screen at iPhone (WebKit) and 1280px, with overflow and console errors.
   - `drive-table.js` / `drive-cpu.js`: pass to phone-view `--eval` to play a full game; pipe the output to `summary.js`.
+  - `layout-check.mjs [url] [webkit|chromium]`: 20 and 8 players at 393 / 320 / landscape / 1280, day and game over; fails on small cards, small text, overlapping seats, a squeezed or scrolling table. Run after any table layout change.
   - `online-two-browsers.mjs [url]`: two phones in one real room, a full game, a reload mid-game, then the room is closed.

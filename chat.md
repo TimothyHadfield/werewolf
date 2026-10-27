@@ -1,5 +1,11 @@
 # Werewolf / Mafia — session log
 
+## 2026-10-21 → 10-27 — visibility pass (builder agents; paused 10-21, finished 10-27)
+- **Asked** (Tim via manager): "Fix this so the view of what's happening and where everything is is very clear. Consider parts of the board that are dense in what's happening and if the user can reasonably see it." (full quote in progress.md)
+- **Built** (`js/app.js`, `styles.css`): `layoutTables()` now grows the cards to the largest size where no two seats touch and nothing pokes off the table (each card style scaled smoothly, text floors 10 px names / 12 px odds); seats clamp by their widest label, so role labels no longer push the fit to the smallest card; the middle gets three tries (all news in view → scrolling only if roomy → seats alone); same seats keep the same size when the footer wraps. Landscape phone: table takes full height, stat line + buttons in a right column. New `tools/qa/layout-check.mjs`.
+- **Verified**: layout check 22 failures on the old build, 0 on the new (WebKit and Chromium). `node tests/run.js` 46 passed. Before/after shots at 393, 320, 659×393, 1280, 1440 (manager scratchpad `vis/werewolf/`).
+- **Open**: 320 px with 20 players stays tight (18 px cards, short names cut); see NOT verified.
+
 ## 2026-10-20 — edge pass (builder agent)
 - **Asked** (Tim via manager): "making each game perfect especially in scenarios that the game doesn't expect or are a little weird" (full quote in progress.md); plus the known 320 px / 20-player plates and the phone Hint row.
 - **Built**: re-copied `_table` kit 1.0.1 and `fx.js` (`.gitattributes` keeps them byte for byte); engine refuses unclaiming another seat's claim; app.js: no-target Doctor/Bodyguard Done, reload after a Doctor pick carries on, phone Back steps back inside the app, two-tab guard, timer stops on leaving, game's real computer level, emoji-safe name cut, Hint in the footer, seats auto-shrink until none overlap; 320 px `--sw` 48 px. Rare rules in `docs/rules-check.md`.

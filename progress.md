@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → `CLAUDE.md` → `docs/rules-check.md` → `docs/ideas.md` → `chat.md` (latest entry).
-Last updated: 2026-10-20, by the edge-pass builder agent.
+Last updated: 2026-10-27, by the visibility-pass builder agent.
 
 ## Goal right now
 A no-moderator Werewolf / Mafia companion on Tim's iPhone. It covers:
@@ -29,6 +29,7 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 | Table look (10-20) | Done. Every play screen is a dark-wood table (shared kit `css/table.css` + `js/table.js`, copied unchanged from `_table/`). Players sit round a rounded-rectangle table from your seat (`ring()` / `layoutTables()` in app.js): one real-ratio card each, name plate, odds pill; your card peeked face up at the bottom (vs computer / online). Dead cards turn face up with a 3-D turn and grey out. News, claims and the Seer's answer are paper slips in the middle; night darkens the same table. Deal: the role deck is a stack that thins per card, top-left, and deals onto the table. Sizes: s-l ≤8, s-m ≤12, s-s 13-20 (markers laid on the card); short (landscape) and ≤360 px rules. Shots: `scratchpad/table/werewolf/before|after5/`. |
 | QA fixes (10-20) | Done, all 9 from the QA agent: the night panel scrolls with Done pinned (20 players: Done at y=647 of 659), a dead human Hunter chooses their own shot vs computer, taps are ignored for 380 ms after a screen change (double taps), Settings has Leave room online, damaged saves fall back to defaults (and a broken game goes home with a toast), resume shows your card, duplicate names are blocked with a toast. |
 | Edge pass (10-20) | Done. 46 weird scenarios tested (table below), 14 failures fixed. Tests `tests/edge.test.js` (9). |
+| Visibility pass (10-27) | Done. Cards grow to fill the table (largest size with no seat touching another or poking off the table); names ≥ 10 px, odds ≥ 12 px everywhere; landscape phone puts the stat line and buttons in a right column so the table gets the full height. Card width, 20 players: 1280 px 40 → 52, 393 px 22 → 24, 320 px 20 → 18 (text up from 9 px, 2 overlaps gone); 8 players at 1280: 64 → 100. Check: `tools/qa/layout-check.mjs <url> [webkit/chromium]` (needs a local server). |
 
 ## Edge pass scenarios (2026-10-20)
 Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager session). Headless WebKit iPhone 393x659 unless noted.
@@ -61,6 +62,7 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 - (2026-10-20) "add opptional sounds you can add to the games that reflect what's happening in the game accurately as well as win celebrations, and other fun annimations to go along with everything. Just make sure everything is customizable in the settings so the user can play as preffered."
 
 - (2026-10-20) "could you also make sure that each of the games also have a look to them so that the game (either board or card layout) looks almost identical to how the board or card layout looks like in real life, so it's easy to understand if you've already played it before, and also so it feels more like you're actually playing in real life rather than you're playing it online. Even things like how youre cards or other things are laid out infront of you, make it look like they are actual cards laid out similar to how it looks like in real life. Make the decks look like actual decks. Make the board have the same design as it does in real life with the same layouts. It should look kind of like you're looking through a camera that is connected to a user's glasses that is playing in real life (not actually, but the layout and style of everything should be similar)."
+- (2026-10-21) "for a lot of the games the cards or board layout is too small to easily see what's going on. Some games just need small design imporvements like filling the screen with the board view and fitting the cards and other things in the empty space, some have severe errors like TTR. Fix this so the view of what's happening and where everything is is very clear. Consider parts of the board that are dense in what's happening and if the user can reasonably see it."
 - (2026-10-20) "I've noticed the games often have good user interfaces but could be improved especially when a scenario happens that the game might've not really thought about or whatnot. Could you focus on making each game perfect especially in scenarios that the game doesn't expect or are a little weird."
 
 ## Event → sound map (`js/game-fx.js`)
@@ -101,7 +103,7 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 - Headless WebKit with confetti can delay the card-turn timers by over 1.5 s; screenshot game over after ~3.5 s.
 - Phone Back: `syncHistory()` (called from the render wrapper) keeps browser history as deep as `screenDepth()`; `popstate` closes the sheet / steps back. `ui.popSkip` stops our own `history.go()` from being handled twice. New screens or sheets must fit `screenDepth()`.
 - A `storage` event from another tab reloads `S`; a stale tab in a game goes to the menu with a toast, so two tabs never overwrite each other.
-- `layoutTables()` steps the card size down (s-l → s-m → s-s, then seat-size spacing) until no two seats overlap; `data-size` on `.ww-table` is the starting size only.
+- `layoutTables()` → `fitTable()` binary-searches a scale for each card style (s-l, s-m, s-s) and keeps the biggest card where `seatClashes()` is 0 (cards, plates, odds, labels, odds bars) and the middle passes its tier (no scroll; if that leaves cards < 40 px, scrolling in a middle ≥ 42% of the table wins when it gives 1.3× bigger cards; last, the middle is ignored). A smaller style only wins while the bigger style's card is < 56 px (so laptops keep labels under the cards). A card mid-animation (3-D turn) is measured at its resting box, or the turn would shrink the table for good. It sets `--cw/--sw/--pf/--of/--sf` on `.ww-table.fit`. About 2–35 ms per layout. `fitMemo` keeps the size when only the table height changes by < 48 px (footer wrap), so nothing resizes under the finger. `placeSeats()` clamps each seat by its widest label (role labels wider than the card). `window.__ww.fit` exposes `layoutTables/applyFit/seatClashes` for debugging.
 - Names are cut with `cut14()` (never splits an emoji).
 - Until 10-20 the `?fast` regex held a stray backspace character (from a Python patch with `\b` in a normal string), so `?fast` silently ran at full speed. Write regexes in patch scripts with raw strings.
 
@@ -111,6 +113,7 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 - Wolves' hint shows what the *table* believes (public odds), not the truth they know.
 - Hint, vote record and day timer are plain versions (toast, table, chip); Tim may restyle.
 - Edge pass (builder's picks, Tim may change): Hint is the first button in the day footer; "Nobody can be protected tonight." wording; last wolf and last villager dying the same night = village wins (no rulebook covers it); crowded small screens get smaller cards automatically; the "Your card" × closes it; "This game moved on in another tab." toast.
+- Visibility pass (builder's picks, Tim may change): landscape phone puts the stat line and buttons in a 176 px right column (four buttons two by two); the middle of the table may shrink to half the table's width so cards can grow; 320 px with 20 players keeps 18 px cards to hold 10 px names (was 20 px cards with 9 px names).
 - Table look (builder's picks, Tim may change): dark wood in both themes; a top-down view (cards upright, not rotated to face each seat) for readability; rounded-rectangle seating; deck top-left on the deal screen; 13+ players at game over show the role without "· dead" (the struck-through plate shows it).
 
 ## NOT verified
@@ -124,6 +127,8 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 - Table look: not checked on a real iPhone or in a live online two-browser game (online unit tests pass; seat screens share `ring()`). Landscape centre text scrolls. The vs-computer "Your card" is still the existing sheet. (320 px plates and the Hint row were fixed in the edge pass.)
 
 - Edge pass: real iPhone back-swipe, a game left in the background for 10+ minutes, and an online two-browser run of the new Back / two-tab code were not checked. At 320 px the day stat line ("Wolf odds …") still wraps to two lines (text, not a button).
+
+- Visibility pass: not on a real iPhone; online two-browser not re-run (seat screens share `ring()`, checked through vs computer). At 320 px with 20 players short names are still cut ("Ros…") and cards are 18 px; the corner seats are what clash first. No pinch zoom was added. Landscape side column has empty space between the stat lines and the buttons. Once (1 of 4 capture runs, 1280 px, game over → Home) headless WebKit left the app to the previous page (`__ww` gone): looks like the Back/history code going one step too far; not reproduced, not checked on the old build, not touched by this pass.
 
 ## Authorized next steps
 - None pending from Tim. Possible: Sheriff and extra roles (parked in ideas.md #16).

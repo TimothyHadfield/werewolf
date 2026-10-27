@@ -478,33 +478,128 @@
     for (let i = 0; i < n; i++) { const want = (len[M] * i) / n; while (k < M && len[k + 1] < want) k++; out.push(pts[k]); }
     return out;
   }
-  // Seats that would sit on top of each other (a small or short screen) step down to the next
-  // smaller card size, so every name plate and marker stays readable.
+  // The table fills its space: the cards round it grow to the largest size at which no two
+  // seats (card, name plate, odds, label) touch, nothing pokes off the table and the middle
+  // still holds its news slips. Each card style (s-l with the odds under the name, s-m, s-s
+  // with the markers laid on the card) is scaled smoothly; the biggest card wins.
   const SIZES = ["s-l", "s-m", "s-s"];
+  const fitMemo = new Map();
   function layoutTables() {
-    document.querySelectorAll(".ww-table").forEach((t) => {
-      if (!t.querySelector(".ww-seat")) return;
-      // Try each size, first evenly spaced, then spaced by seat size; keep the first that fits
-      // (or, if none does, the least crowded way at the smallest size).
+    document.querySelectorAll(".ww-table").forEach(fitTable);
+  }
+  function fitTable(t) {
+    if (!t.querySelector(".ww-seat")) return;
+    const W = t.clientWidth, H = t.clientHeight;
+    const seats = [...t.querySelectorAll(".ww-seat")];
+    const sig = [W, t.dataset.size, seats.map((s) => (s.classList.contains("dead") ? "d" : "") + (s.classList.contains("has-odds") ? "o" : "") + (s.classList.contains("me") ? "m" : "") + s.querySelector(".pn").textContent + "/" + ((s.querySelector(".ps") || {}).textContent || "")).join(",")].join("|");
+    // Same seats, about the same space (a footer button that wrapped to two lines): keep the
+    // card size steady, so nothing resizes under the finger.
+    const last = fitMemo.get(sig);
+    if (last && Math.abs(last.H - H) < 48 && applyFit(t, last.cls, last.k, last.bySize, 0)) return;
+    const start = Math.max(0, SIZES.indexOf(t.dataset.size || "s-l"));
+    // Biggest card for one way of treating the middle. A smaller card style (markers laid on the
+    // card) only wins when the bigger style's card is still small (a phone) and it is clearly bigger.
+    const tierBest = (roomy) => {
       let best = null;
-      for (let k = Math.max(0, SIZES.indexOf(t.dataset.size || "s-l")); k < SIZES.length; k++) {
+      for (let c = start; c < SIZES.length; c++) {
         for (const bySize of [false, true]) {
-          SIZES.forEach((c, i) => t.classList.toggle(c, i === k));
-          placeSeats(t, bySize);
-          const n = seatsOverlap(t);
-          if (!n) return;
-          if (k === SIZES.length - 1 && (!best || n < best.n)) best = { n, bySize };
+          let lo = 0.7, hi = 2.4, got = null;
+          if (applyFit(t, c, lo, bySize, roomy)) {
+            got = lo;
+            for (let it = 0; it < 7; it++) { const mid = (lo + hi) / 2; if (applyFit(t, c, mid, bySize, roomy)) { got = mid; lo = mid; } else hi = mid; }
+          }
+          if (got == null) continue;
+          const cw = fitBase(t, c).cw * got;
+          if (!best || (c === best.cls ? cw > best.cw : best.cw < 56 && cw > best.cw * 1.08)) best = { cls: c, k: got, bySize, cw, roomy };
         }
       }
-      if (best && !best.bySize) placeSeats(t, false);
-    });
+      return best;
+    };
+    // First keep all the news in the middle in view. If that leaves small cards, letting a long
+    // list scroll in a roomy middle may give clearly bigger ones. Last, size the seats on their own.
+    let best = tierBest(2);
+    if (!best || best.cw < 40) { const b1 = tierBest(1); if (b1 && (!best || b1.cw > best.cw * 1.3)) best = b1; }
+    if (!best) best = tierBest(0);
+    if (!best) {
+      // Nothing fits (a tiny screen): the smallest style at its smallest size, the least crowded way.
+      const c = SIZES.length - 1;
+      let pick = { cls: c, k: 0.7, bySize: false, n: Infinity };
+      for (const bySize of [false, true]) { applyFit(t, c, 0.7, bySize); const n = seatClashes(t); if (n < pick.n) pick = { cls: c, k: 0.7, bySize, n }; }
+      best = pick;
+      best.fallback = true;
+    }
+    applyFit(t, best.cls, best.k, best.bySize, 0);
+    if (!best.fallback) fitMemo.set(sig, { H, cls: best.cls, k: best.k, bySize: best.bySize });
+    if (fitMemo.size > 60) fitMemo.delete(fitMemo.keys().next().value);
   }
-  function seatsOverlap(t) {
-    const r = [...t.querySelectorAll(".ww-seat")].map((s) => ({ x: s.offsetLeft, y: s.offsetTop, w: s.offsetWidth, h: s.offsetHeight }));
+  // Base card / seat width and fonts of a style at this screen size (from the stylesheet).
+  const baseMemo = new Map();
+  function fitBase(t, c) {
+    const key = SIZES[c] + innerWidth + "x" + innerHeight;
+    if (baseMemo.has(key)) return baseMemo.get(key);
+    if (t._fitBase && t._fitBase[key]) return t._fitBase[key];
+    t.classList.remove("fit");
+    ["--cw", "--sw"].forEach((v) => t.style.removeProperty(v));
+    SIZES.forEach((s, i) => t.classList.toggle(s, i === c));
+    const cs = getComputedStyle(t);
+    const fsOf = (sel) => { const e = t.querySelector(sel); return e ? parseFloat(getComputedStyle(e).fontSize) : 12; };
+    const b = { cw: parseFloat(cs.getPropertyValue("--cw")) || 40, sw: parseFloat(cs.getPropertyValue("--sw")) || 80, pf: fsOf(".ww-seat .tbl-plate"), of: fsOf(".ww-seat .odds"), sf: fsOf(".ww-seat .ps") };
+    // Only remember it when every kind of marker was there to measure.
+    if (t.querySelector(".ww-seat .odds") && t.querySelector(".ww-seat .ps")) baseMemo.set(key, b);
+    (t._fitBase = t._fitBase || {})[key] = b; // this table measures each style once
+    return b;
+  }
+  // Lay the table out at style c, scale k; true when it fits.
+  function applyFit(t, c, k, bySize, roomy) {
+    const b = fitBase(t, c);
+    SIZES.forEach((s, i) => t.classList.toggle(s, i === c));
+    t.classList.add("fit");
+    // Text grows more slowly than the cards and never drops below the readable floor.
+    const fk = Math.min(1.45, Math.max(1, 1 + (k - 1) * 0.6));
+    t.style.setProperty("--cw", (b.cw * k).toFixed(1) + "px");
+    t.style.setProperty("--sw", (b.sw * k).toFixed(1) + "px");
+    t.style.setProperty("--pf", Math.max(10, Math.round(b.pf * fk)) + "px");
+    t.style.setProperty("--of", Math.max(12, Math.round(b.of * fk)) + "px");
+    t.style.setProperty("--sf", Math.max(10, Math.round(b.sf * fk)) + "px");
+    placeSeats(t, bySize);
+    if (seatClashes(t)) return false;
+    const W = t.clientWidth, H = t.clientHeight;
+    const card = t.querySelector(".ww-seat:not(.me) .ww-card") || t.querySelector(".ww-card");
+    if (card && card.offsetHeight > Math.max(H * 0.22, 40) && k > 0.7) return false;
+    const ctr = t.querySelector(".ww-center");
+    if (ctr) {
+      if (ctr.clientWidth < Math.min(W * 0.5, 320)) return false;
+      const scrolls = ctr.scrollHeight > ctr.clientHeight + 1;
+      if (scrolls && (roomy === 2 || (roomy === 1 && ctr.clientHeight < H * 0.42))) return false;
+    }
+    return true;
+  }
+  // An element's on-screen box relative to the table. A card that is turning over right now is
+  // scaled up for a moment; it counts at its resting size, so the turn can't shrink the table.
+  function boxIn(t, e, tr) {
+    if (e.getAnimations && e.getAnimations().length) {
+      let x = 0, y = 0, n = e;
+      while (n && n !== t) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+      if (n === t) return { left: x, top: y, right: x + e.offsetWidth, bottom: y + e.offsetHeight };
+    }
+    const r = e.getBoundingClientRect();
+    return { left: r.left - tr.left, top: r.top - tr.top, right: r.right - tr.left, bottom: r.bottom - tr.top };
+  }
+  // How many pairs of seats touch (cards, plates, odds and labels), plus anything off the table.
+  function seatClashes(t) {
+    const tr = t.getBoundingClientRect(), W = tr.width, H = tr.height;
+    const boxes = [];
     let n = 0;
-    for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) {
-      const a = r[i], b = r[j];
-      if (Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 1 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 1) n++;
+    t.querySelectorAll(".ww-seat").forEach((s, i) => s.querySelectorAll(".ww-card,.tbl-plate,.odds,.ps,.bar").forEach((e) => {
+      if (!e.offsetParent || !e.offsetWidth) return;
+      const r = boxIn(t, e, tr);
+      if (r.left < -1 || r.right > W + 1 || r.top < -1 || r.bottom > H + 1) n++;
+      boxes.push({ i, r });
+    }));
+    for (let a = 0; a < boxes.length; a++) for (let b = a + 1; b < boxes.length; b++) {
+      if (boxes[a].i === boxes[b].i) continue;
+      const A = boxes[a].r, B = boxes[b].r;
+      if (Math.min(A.right, B.right) - Math.max(A.left, B.left) > 1 && Math.min(A.bottom, B.bottom) - Math.max(A.top, B.top) > 1) n++;
     }
     return n;
   }
@@ -512,17 +607,32 @@
     {
       const seats = [...t.querySelectorAll(".ww-seat")];
       const W = t.clientWidth, H = t.clientHeight;
+      // What pokes out past each seat's box (a role label wider than the card), measured in one pass.
+      const ext = seats.map((s) => {
+        const sr = s.getBoundingClientRect();
+        const e = { l: 0, r: 0, t: 0, b: 0 };
+        s.querySelectorAll(".tbl-plate,.odds,.ps,.bar").forEach((c) => {
+          if (!c.offsetParent || !c.offsetWidth) return;
+          const r = c.getBoundingClientRect();
+          e.l = Math.max(e.l, sr.left - r.left); e.r = Math.max(e.r, r.right - sr.right);
+          e.t = Math.max(e.t, sr.top - r.top); e.b = Math.max(e.b, r.bottom - sr.bottom);
+        });
+        return e;
+      });
       let sw = 0, sh = 0, mh = 0;
-      seats.forEach((s) => { if (s.classList.contains("me")) mh = s.offsetHeight; else { sw = Math.max(sw, s.offsetWidth); sh = Math.max(sh, s.offsetHeight); } });
+      seats.forEach((s, i) => {
+        const w = s.offsetWidth + ext[i].l + ext[i].r, h = s.offsetHeight + ext[i].t + ext[i].b;
+        if (s.classList.contains("me")) mh = h; else { sw = Math.max(sw, w); sh = Math.max(sh, h); }
+      });
       if (!mh) mh = sh;
       const pad = 3;
       const cy = H / 2 + (sh - mh) / 4;
       const pts = ringPoints(seats.length, Math.max(8, W / 2 - sw / 2 - pad), Math.max(8, H / 2 - (sh + mh) / 4 - pad), bySize ? sw : 1, bySize ? sh : 1);
-      seats.forEach((s) => {
+      seats.forEach((s, i) => {
         const p = pts[+s.dataset.pos] || { x: 0, y: 0 };
-        const w = s.offsetWidth, h = s.offsetHeight;
-        const x = Math.max(pad, Math.min(W - w - pad, W / 2 + p.x - w / 2));
-        const y = Math.max(pad, Math.min(H - h - pad, cy + p.y - h / 2));
+        const w = s.offsetWidth, h = s.offsetHeight, e = ext[i];
+        const x = Math.max(pad + e.l, Math.min(W - w - pad - e.r, W / 2 + p.x - w / 2));
+        const y = Math.max(pad + e.t, Math.min(H - h - pad - e.b, cy + p.y - h / 2));
         s.style.left = Math.round(x) + "px"; s.style.top = Math.round(y) + "px";
       });
       const c = t.querySelector(".ww-center");
@@ -1565,6 +1675,6 @@
   });
 
   // Debug/test hook (used by headless checks): window.__ww
-  window.__ww = { S: () => S, ui, W, room: () => room };
+  window.__ww = { S: () => S, ui, W, room: () => room, fit: { layoutTables, applyFit, seatClashes } };
   render();
 })();
