@@ -116,11 +116,40 @@
   const tile = (id) => $('.pbtn[data-id="' + id + '"]');
   const play = (name, o) => (FX ? FX.play(name, o) : false);
 
+  // A card shown on death or vote-out lifts off the table into the middle of the screen, holds, and
+  // settles back. Off with Animations off (Settings) or the phone's "reduce motion". Transform/opacity only.
+  function spotlight(id) {
+    if (!FX || !FX.settings || !FX.settings.animations || !doc || !doc.body || !doc.defaultView || !doc.createElement) return;
+    const win = doc.defaultView;
+    try { if (win.matchMedia && win.matchMedia("(prefers-reduced-motion: reduce)").matches) return; } catch (e) { /* */ }
+    const t = tile(id); const card = t && typeof t.querySelector === "function" ? t.querySelector(".ww-card") : null;
+    if (!card || !card.animate || !card.querySelector(".ww-face")) return;
+    const r = card.getBoundingClientRect(); if (!r.width) return;
+    const vw = doc.documentElement.clientWidth, vh = doc.documentElement.clientHeight;
+    const W = Math.min(210, vw * 0.48, (vh * 0.52) / (r.height / r.width));
+    if (W <= r.width * 1.15) return; // already big on screen (laptop): the turn itself is the moment
+    const k = W / r.width, dx = vw / 2 - (r.left + r.width / 2), dy = vh / 2 - (r.top + r.height / 2);
+    const c = card.cloneNode(true);
+    c.classList.remove("ww-turn"); c.querySelectorAll(".ww-back").forEach((b) => b.remove()); c.querySelectorAll(".ww-hide").forEach((b) => b.classList.remove("ww-hide"));
+    c.style.cssText = "position:fixed;left:" + r.left + "px;top:" + r.top + "px;width:" + r.width + "px;height:" + r.height + "px;margin:0;z-index:61;pointer-events:none;transform-origin:50% 50%";
+    const dim = doc.createElement("div");
+    dim.style.cssText = "position:fixed;inset:0;z-index:60;pointer-events:none;background:radial-gradient(circle at 50% 50%, rgba(240,211,154,.16), rgba(0,0,0,.6) 60%);opacity:0";
+    doc.body.appendChild(dim); doc.body.appendChild(c);
+    const d = 1700 * scale * (FX.settings.animSpeed === "fast" ? 0.55 : 1);
+    const big = "translate(" + dx + "px," + dy + "px) scale(" + k + ")";
+    const done = () => { c.remove(); dim.remove(); };
+    try {
+      c.animate([{ transform: "none" }, { transform: big, offset: 0.25 }, { transform: big, offset: 0.75 }, { transform: "none", opacity: 1, offset: 0.97 }, { transform: "none", opacity: 0 }], { duration: d, easing: "ease-in-out" }).onfinish = done;
+      dim.animate([{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }], { duration: d });
+    } catch (e) { done(); return; }
+    setTimeout(done, d + 500); // never leave it on screen (a stalled or background tab)
+  }
+
   // Play a list of events. Call it right after the new screen is drawn.
   function fire(list) {
     if (!FX || !list || !list.length) return;
     const dawn = list.some((e) => e.type === "dayBreak");
-    let deathN = 0;
+    let deathN = 0, revealN = 0;
     list.forEach((e) => {
       const snd = SOUND[e.type];
       switch (e.type) {
@@ -146,7 +175,9 @@
         }
         case "reveal": {
           const wait = (dawn ? AFTER_DAWN : 0) + AFTER_STAMP;
+          const n = revealN++;
           later(wait, () => { play(snd); FX.pop(tile(e.id)); });
+          later(wait + 450 + n * 1800, () => spotlight(e.id));
           break;
         }
         case "noOut": play(snd); break;
@@ -164,6 +195,6 @@
     });
   }
 
-  const api = { events, fire, init, SOUND, TEAM_COLORS };
+  const api = { events, fire, init, spotlight, SOUND, TEAM_COLORS };
   return api;
 });

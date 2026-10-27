@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → `CLAUDE.md` → `docs/rules-check.md` → `docs/ideas.md` → `chat.md` (latest entry).
-Last updated: 2026-10-27, by the visibility-pass builder agent.
+Last updated: 2026-10-27, by the improve-pass builder agent (kits, Undo, Daily, layout).
 
 ## Goal right now
 A no-moderator Werewolf / Mafia companion on Tim's iPhone. It covers:
@@ -30,6 +30,7 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 | QA fixes (10-20) | Done, all 9 from the QA agent: the night panel scrolls with Done pinned (20 players: Done at y=647 of 659), a dead human Hunter chooses their own shot vs computer, taps are ignored for 380 ms after a screen change (double taps), Settings has Leave room online, damaged saves fall back to defaults (and a broken game goes home with a toast), resume shows your card, duplicate names are blocked with a toast. |
 | Edge pass (10-20) | Done. 46 weird scenarios tested (table below), 14 failures fixed. Tests `tests/edge.test.js` (9). |
 | Visibility pass (10-27) | Done. Cards grow to fill the table (largest size with no seat touching another or poking off the table); names ≥ 10 px, odds ≥ 12 px everywhere; landscape phone puts the stat line and buttons in a right column so the table gets the full height. Card width, 20 players: 1280 px 40 → 52, 393 px 22 → 24, 320 px 20 → 18 (text up from 9 px, 2 overlaps gone); 8 players at 1280: 64 → 100. Check: `tools/qa/layout-check.mjs <url> [webkit/chromium]` (needs a local server). |
+| Improve pass (10-27) | Done. Smart computers re-tuned (Smart vs Normal 59% → 81%), Mason + Prince roles. Shared kits copied unchanged: `_coach` (guided first game `js/wwcoach.js`, rules sheet in Settings → Learn), `_profile` (My stats pill on home, achievements, Daily game `js/wwprofile.js`), `_pwa` 1.2.0 (manifest, `sw.js`, icons), `_fx` re-copied. Undo vs computer (top bar; not in the Daily). Avatars on table plates (name-hashed). Laptop home is two columns (menu + card fan); phone setup fills the empty lower part with a live table preview + Daily item. Revealed dead card zooms to the centre on phones (`spotlight()` in game-fx; off with reduced motion / FX off). Tests 57/57, `tools/pwa-check.mjs` 18/18. |
 
 ## Edge pass scenarios (2026-10-20)
 Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager session). Headless WebKit iPhone 393x659 unless noted.
@@ -52,6 +53,7 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
   | Smart | 56% | 48% | 46% |
 
 - Setups (Ultimate, 8 players, village win): Simple 47.6%, Classic 55.8%, Full 43.3%, Rulebook 66.6%.
+- Head to head (fair share, both sides, 3 setups × 1,000 games, 10-27): Normal vs Easy 76.7%, Smart vs Normal 80.8% (was 59.2%). My stats ratings from these: Easy 1200, Normal 1410, Smart 1660.
 
 ## Standing instructions (Tim's words, via the manager)
 - "Voice narrator, role setups, each player's chance of being a wolf" — a real-table companion, no human moderator.
@@ -106,6 +108,9 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 - A `storage` event from another tab reloads `S`; a stale tab in a game goes to the menu with a toast, so two tabs never overwrite each other.
 - `layoutTables()` → `fitTable()` binary-searches a scale for each card style (s-l, s-m, s-s) and keeps the biggest card where `seatClashes()` is 0 (cards, plates, odds, labels, odds bars) and the middle passes its tier (no scroll; if that leaves cards < 40 px, scrolling in a middle ≥ 42% of the table wins when it gives 1.3× bigger cards; last, the middle is ignored). A smaller style only wins while the bigger style's card is < 56 px (so laptops keep labels under the cards). A card mid-animation (3-D turn) is measured at its resting box, or the turn would shrink the table for good. It sets `--cw/--sw/--pf/--of/--sf` on `.ww-table.fit`. About 2–35 ms per layout. `fitMemo` keeps the size when only the table height changes by < 48 px (footer wrap), so nothing resizes under the finger. `placeSeats()` clamps each seat by its widest label (role labels wider than the card). `window.__ww.fit` exposes `layoutTables/applyFit/seatClashes` for debugging.
 - Names are cut with `cut14()` (never splits an emoji).
+- Kit files `js/coach.js`, `css/coach.css`, `js/profile.js`, `css/profile.css`, `js/pwa.js`, `sw.js`, `tools/make-icons.mjs`, `tools/pwa-check.mjs` are shared: never edit here, re-copy from `_coach/_profile/_pwa`. `tools/stamp.js` also rewrites `data-version=` on the pwa.js tag.
+- `PWA.safeToReload` (app.js) says no during a live cpu/table/online game, an open sheet/overlay or a focused input. A My stats result is recorded once per game (`S.cpuMeta.recorded`); leaving a cpu game after your first move records a loss (`abandonCpu`); the guided game (`cpuMeta.tutorial`) never records.
+- pwa-check play script must retry the Vote click (computer ballots re-render the footer and the tap guard drops the click).
 - Until 10-20 the `?fast` regex held a stray backspace character (from a Python patch with `\b` in a normal string), so `?fast` silently ran at full speed. Write regexes in patch scripts with raw strings.
 
 ## Decisions
@@ -115,6 +120,7 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 - Hint, vote record and day timer are plain versions (toast, table, chip); Tim may restyle.
 - Edge pass (builder's picks, Tim may change): Hint is the first button in the day footer; "Nobody can be protected tonight." wording; last wolf and last villager dying the same night = village wins (no rulebook covers it); crowded small screens get smaller cards automatically; the "Your card" × closes it; "This game moved on in another tab." toast.
 - Visibility pass (builder's picks, Tim may change): landscape phone puts the stat line and buttons in a 176 px right column (four buttons two by two); the middle of the table may shrink to half the table's width so cards can grow; 320 px with 20 players keeps 18 px cards to hold 10 px names (was 20 px cards with 9 px names).
+- Improve pass (builder's picks, Tim may change): Prince is protected from every vote-out (not only the first); Mason/Prince keep their names in the Mafia theme; avatars are picked from your name (no picker); laptop home card fan; Daily = 8 players, 2 wolves + Seer + Doctor + Hunter + 3 villagers vs Normal, wording "Same deal for everyone today"; tutorial wording; Normal left beatable on purpose so the balance numbers stay valid.
 - Table look (builder's picks, Tim may change): dark wood in both themes; a top-down view (cards upright, not rotated to face each seat) for readability; rounded-rectangle seating; deck top-left on the deal screen; 13+ players at game over show the role without "· dead" (the struck-through plate shows it).
 
 ## NOT verified
@@ -130,6 +136,8 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 - Edge pass: real iPhone back-swipe, a game left in the background for 10+ minutes, and an online two-browser run of the new Back / two-tab code were not checked. At 320 px the day stat line ("Wolf odds …") still wraps to two lines (text, not a button).
 
 - Visibility pass: not on a real iPhone; online two-browser not re-run (seat screens share `ring()`, checked through vs computer). At 320 px with 20 players short names are still cut ("Ros…") and cards are 18 px; the corner seats are what clash first. No pinch zoom was added. Landscape side column has empty space between the stat lines and the buttons. Once (1 of 4 capture runs, 1280 px, game over → Home) headless WebKit left the app to the previous page (`__ww` gone): looks like the Back/history code going one step too far; not reproduced, not checked on the old build, not touched by this pass.
+
+- Improve pass: Add to Home Screen / offline on a real iPhone; pwa-check was not first run against the unfixed build. At 320×568 the home moon is clipped at the top, and on laptop the roles column keeps an empty band under Custom (both from before this pass).
 
 ## Authorized next steps
 - None pending from Tim. Possible: Sheriff and extra roles (parked in ideas.md #16).

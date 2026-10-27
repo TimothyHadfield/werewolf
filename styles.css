@@ -534,3 +534,34 @@ input[type=text]:focus { outline: none; border-color: var(--accent); }
   /* Four short buttons (Hint, Claim, Skip, Vote) sit two by two so they clear the stat lines above. */
   .ww-play > .day-foot:has(> .btn:nth-child(4)) { display: grid; grid-template-columns: 1fr 1fr; align-content: end; }
 }
+
+/* ---------- My stats button, seat pictures, setup table preview, laptop home (improve pass 10-27) ---------- */
+.stats-btn { min-height: 40px; padding: 5px 12px 5px 5px; border-radius: 999px; font-size: 14px; gap: 8px; }
+.stats-btn svg { width: 28px; height: 28px; flex: 0 0 auto; }
+.pav { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -0.22em; margin-right: 3px; }
+.pav svg { width: 100%; height: 100%; display: block; }
+.setup .col-body.pb { display: flex; flex-direction: column; }
+.setup .col-body.pb > * { flex-shrink: 0; }
+.setup .col-body.pb > .setup-preview { flex: 1 1 150px; }
+.setup-preview { position: relative; width: 100%; max-width: 420px; min-height: 104px; max-height: 300px; margin: 6px auto 0; }
+.sp-table { position: absolute; left: 16%; right: 16%; top: 24%; bottom: 24%; border-radius: 42% / 48%; }
+.sp-seat { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.sp-card { width: 21px; display: block; border-radius: 4px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,.55); }
+.sp-card svg { display: block; width: 100%; height: auto; }
+.sp-name { font-size: 11px; line-height: 13px; color: var(--muted); white-space: nowrap; max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+.sp-seat.me .sp-name { color: var(--text); font-weight: 700; }
+.daily-item { width: 100%; margin-top: 6px; padding-top: 10px; padding-bottom: 10px; }
+.hero-fan { justify-content: center; margin-top: 30px; height: 150px; }
+.hero-fan .tbl-card { width: 96px; flex: 0 0 auto; margin: 0 -12px; border-radius: 8px; overflow: hidden; transform-origin: 50% 130%; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+.hero-fan .tbl-card svg { display: block; width: 100%; height: auto; }
+.hero-fan .tbl-card:nth-child(1) { transform: rotate(-13deg); }
+.hero-fan .tbl-card:nth-child(2) { transform: translateY(-10px); z-index: 1; }
+.hero-fan .tbl-card:nth-child(3) { transform: rotate(13deg); }
+@media (min-width: 900px) {
+  .home { flex-direction: row; gap: clamp(48px, 8vw, 120px); }
+  .home .hero-fan.wide-only { display: flex; }
+  .home .foot { left: 0; right: 0; text-align: center; }
+}
+@media (max-height: 500px) { .setup-preview { display: none; } }
+/* The coach kit's rules tabs wrap instead of scrolling sideways on phones (same fix as King of Tokyo). */
+.coach-rules .coach-rules-nav { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }

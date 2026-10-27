@@ -16,6 +16,8 @@
   const DEFAULT_STORE = {
     settings: { theme: "werewolf", ruleset: "ultimate", opts: Object.assign({}, W.RULESETS.ultimate.opts), voice: true, rate: "normal", level: "normal", timer: 0 },
     names: [], count: 8, cpuCount: 8, onCount: 6, choice: {}, custom: {}, game: null, undo: [], cpu: null, online: null,
+    // vs computer: Undo snapshots and what the game counts as in My stats (helped / daily / guided / recorded / moved)
+    cpuUndo: [], cpuMeta: null,
   };
   function load() {
     try {
@@ -51,6 +53,9 @@
     out.game = okGame(s.game, "table") ? s.game : null;
     out.cpu = okGame(s.cpu, "seats") ? s.cpu : null;
     out.undo = out.game && Array.isArray(s.undo) ? s.undo.filter((g) => okGame(g, "table")) : [];
+    out.cpuUndo = out.cpu && Array.isArray(s.cpuUndo) ? s.cpuUndo.filter((g) => okGame(g, "seats")).slice(-30) : [];
+    const m = obj(s.cpuMeta) ? s.cpuMeta : null;
+    out.cpuMeta = out.cpu && m ? { helped: !!m.helped, daily: typeof m.daily === "string" ? m.daily : null, tutorial: !!m.tutorial, recorded: !!m.recorded, moved: !!m.moved } : null;
     out.online = obj(s.online) && typeof s.online.code === "string" && /^[A-Z0-9]{5}$/.test(s.online.code) ? { code: s.online.code } : null;
     return out;
   }
@@ -73,6 +78,12 @@
   const FX = window.FX || null;
   if (FX) { FX.init({ game: "werewolf", accent: "#6ea8fe" }); if (window.WWFX) window.WWFX.init(FX, { scale: FAST }); }
   const sfx = (name, o) => { if (FX) FX.play(name, o); };
+  // My stats (shared kit js/profile.js + js/wwprofile.js) and the rules sheet / guided first game
+  // (shared kit js/coach.js + js/wwcoach.js). Both optional: the game runs without them.
+  const WP = window.WWProfile || null, WC = window.WWCoach || null;
+  const PF = () => (window.Profile && WP ? window.Profile : null);
+  const CO = () => (window.COACH && WC ? window.COACH : null);
+  let tour = null;
   function oops(msg) { sfx("error"); toast(msg); }
   const T = () => S.settings.theme;
   // Seat games: vs computer (this device) or online (a room). "Me" is the seat you hold.
@@ -264,11 +275,23 @@
     items += S.online && S.online.code ? menuItem("resumeOnline", IC.resume, "Resume online", "Room " + S.online.code) : menuItem("online", IC.play, "Play online", "Friends on their own phones");
     items += menuItem("lab", IC.chart, "Setup lab", "Balance and computer strength");
     items += menuItem("rules", IC.book, "Rules", RS_NAME());
+    // Laptop only: a fan of role cards under the title (the phone menu already fills the screen).
+    const fan = '<div class="hero-fan wide-only" aria-hidden="true">' + ["seer", "wolf", "villager"].map((r) => '<span class="ww-pc tbl-card">' + art(r, 96) + "</span>").join("") + "</div>";
     return '<div class="home"><div class="stars"></div>' +
       '<div style="position:absolute;top:calc(8px + env(safe-area-inset-top));right:10px">' + gearBtn + "</div>" +
-      '<div class="hero">' + moonArt("moon-big") + "<h1>" + th.title + '</h1><div class="tag">No moderator needed</div></div>' +
+      (PF() ? '<div style="position:absolute;top:calc(8px + env(safe-area-inset-top));left:10px;z-index:2">' + statsBtn() + "</div>" : "") +
+      '<div class="hero">' + moonArt("moon-big") + "<h1>" + th.title + '</h1><div class="tag">No moderator needed</div>' + fan + "</div>" +
       '<nav class="menu">' + items + "</nav>" +
       '<div class="foot">' + esc(window.WW_BUILD || "") + "</div></div>";
+  }
+  const statsBtn = () => '<button class="btn ghost pf-open stats-btn" data-act="stats">' + PF().avatarSVG(PF().avatar, 24) + "My stats</button>";
+  // A seat's picture: yours is your profile picture; everyone else's is picked from their name.
+  function avatarFor(name, mine) {
+    const P = PF(); if (!P) return "";
+    let h = 0; const s = String(name || "").toLowerCase();
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    const id = mine ? P.avatar : P.avatars[h % P.avatars.length];
+    return '<span class="pav" aria-hidden="true">' + P.avatarSVG(id, 16) + "</span>";
   }
   const RS_NAME = () => (W.RULESETS[S.settings.ruleset] && optsMatchPreset() ? W.RULESETS[S.settings.ruleset].name : "Custom") + " rules";
   function menuItem(act, ic, title, sub, main) {
@@ -308,9 +331,12 @@
       }).join("") + '<div class="cr"><span class="nm">' + glyph("villager") + esc(RN("villager", true)) + '</span><span class="val" style="padding-right:14px">' + custom.villager + "</span></div></div>";
     }
     const step = ui.setupStep;
-    const playersCol = '<section class="col' + (step !== 1 ? " step-hidden" : "") + '"><div class="col-body">' +
+    const playersCol = '<section class="col' + (step !== 1 ? " step-hidden" : "") + '"><div class="col-body pb"><div>' +
       '<p class="label">Players</p><div class="count-row"><span class="muted">How many?</span><span class="stepper"><button data-act="count" data-d="-1" ' + (n <= min ? "disabled" : "") + ' aria-label="Fewer players">−</button><span class="big-n">' + n + '</span><button data-act="count" data-d="1" ' + (n >= max ? "disabled" : "") + ' aria-label="More players">+</button></span></div>' +
       '<p class="label">' + (cpu ? "Seats" : "Names") + "</p><div class=\"names\">" + nm + "</div></div>" +
+      tablePreview(n, cpu ? (onl ? [onlineName()].concat(Array(n - 1).fill("")) : names) : playerNames(n), cpu) +
+      (ui.setupMode === "cpu" && PF() ? '<button class="menu-item daily-item" data-act="daily"><span class="mi-ic">' + IC.sun.replace(' class="sun"', "") + "</span><span><b>Daily game</b><small>" + (dailyDone() ? "Done today · back tomorrow" : "Same deal for everyone today") + "</small></span></button>" : "") +
+      "</div>" +
       '<div class="col-foot phone-only"><button class="btn primary big" data-act="setupNext">Roles →</button></div></section>';
     const rolesCol = '<section class="col' + (step !== 2 ? " step-hidden" : "") + '"><div class="col-body">' +
       '<p class="label"><span class="grow">Roles · ' + esc(RS_NAME()) + "</span>" + '<span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">Village wins</span>' + q("balance") + "</p>" +
@@ -318,6 +344,13 @@
       '<div class="col-foot"><button class="btn primary big" data-act="startGame">' + (onl ? "Create room" : cpu ? "Deal me in" : "Deal cards") + "</button></div></section>";
     return topbar(onl ? "New online room" : cpu ? "Play vs computer" : "Table game", "", backBtn(step === 2 ? "setupBack" : onl ? "back" : "home"), gearBtn) +
       '<div class="main"><div class="setup">' + playersCol + rolesCol + "</div></div>";
+  }
+  // A small picture of the table you are setting up: the seats round it, face-down cards, your seat at the bottom.
+  function tablePreview(n, names, cpu) {
+    const pts = ringPoints(n, 40, 30);
+    const seats = pts.map((pt, i) => '<span class="sp-seat' + (cpu && i === 0 ? " me" : "") + '" style="left:' + (50 + pt.x).toFixed(1) + "%;top:" + (50 + pt.y).toFixed(1) + '%"><span class="sp-card">' + art(null, 28) + "</span>" +
+      '<span class="sp-name">' + avatarFor(names[i] || "", cpu && i === 0) + esc(names[i] || (cpu ? "" : "Player " + (i + 1))) + "</span></span>").join("");
+    return '<div class="setup-preview" aria-hidden="true"><div class="sp-table tbl-surface tbl-wood-dark"></div>' + seats + "</div>";
   }
   function setupRow(name, setup, m, sel, attrs, hidePct) {
     const chips = W.ROLE_KEYS.filter((r) => setup[r]).map((r) => '<span class="chip ' + team(r) + '">' + glyph(r) + (setup[r] > 1 ? setup[r] + " " : "") + esc(RN(r, setup[r] > 1)) + "</span>").join("");
@@ -348,9 +381,10 @@
     return renderDay(g);
   }
   function gameTop(g, title, sub) {
-    const canUndo = ui.mode === "table" && S.undo.length > 0 && g.phase !== "night" && g.phase !== "reveal";
+    const cpuUndo = ui.mode === "cpu" && !(S.cpuMeta && S.cpuMeta.daily);
+    const canUndo = ui.mode === "table" ? S.undo.length > 0 && g.phase !== "night" && g.phase !== "reveal" : cpuUndo && S.cpuUndo.length > 0 && !g.winner;
     const left = '<button class="icon-btn" data-act="home" aria-label="Menu">' + IC.back + "</button>";
-    const right = (ui.mode === "table" ? '<button class="icon-btn" data-act="undo" aria-label="Undo" ' + (canUndo ? "" : "disabled") + ">" + IC.undo + "</button>" : "") + gearBtn;
+    const right = (ui.mode === "table" || cpuUndo ?'<button class="icon-btn" data-act="undo" aria-label="Undo" ' + (canUndo ? "" : "disabled") + ">" + IC.undo + "</button>" : "") + gearBtn;
     return topbar(title, sub, left, right);
   }
   function gameShell(g, title, sub, mainHtml, opts) {
@@ -463,7 +497,7 @@
       const j = window.TABLE ? window.TABLE.jitter(g.seed + ":seat", p.id, { rot: 5, off: 0 }) : { r: 0 };
       return '<button class="pbtn ww-seat' + (opts.sel === p.id ? " sel" : "") + (p.alive ? "" : " dead") + (odd ? " has-odds" : "") + (me ? " me" : "") +
         '" data-act="' + (opts.act || "sel") + '" data-id="' + p.id + '" data-pos="' + pos + '" style="--r:' + j.r + 'deg" ' + (can ? "" : "disabled") + ">" +
-        seatCard(g, p, faceUp) + '<span class="pn tbl-plate">' + esc(p.name) + "</span>" + (sub ? '<span class="ps">' + sub + "</span>" : "") + odd + "</button>";
+        seatCard(g, p, faceUp) + '<span class="pn tbl-plate">' + avatarFor(p.name, me && SEATED() && p.kind !== "bot") + esc(p.name) + "</span>" + (sub ? '<span class="ps">' + sub + "</span>" : "") + odd + "</button>";
     }).join("");
     return '<div class="ww-table tbl-surface tbl-wood-dark ' + size + (ids.length ? " picking" : "") + (opts.night ? " is-night" : "") + '" data-size="' + size + '">' + seats +
       '<div class="ww-center" data-keep-scroll><div class="ww-cin">' + (center || "") + "</div></div></div>";
@@ -1138,6 +1172,7 @@
     try { S.cpu = W.apply(S.cpu, a); } catch (e) { oops(e.message); return; }
     if (a.type !== "pick" || S.cpu.phase !== prev.phase) ui.sel = null;
     announceChange(prev, S.cpu);
+    if (S.cpu.winner) recordCpu();
     save();
     render();
   }
@@ -1156,7 +1191,12 @@
   }
   // One move from the seat you hold.
   function seatAct(a) {
-    if (ui.mode === "cpu") { a.seat = 0; applyCpu(a); pump(); return; }
+    if (ui.mode === "cpu") {
+      // Undo goes back to just before your own move (the computers' replies are taken back with it).
+      if (!(S.cpuMeta && S.cpuMeta.daily)) { S.cpuUndo.push(S.cpu); if (S.cpuUndo.length > 30) S.cpuUndo.shift(); }
+      if (S.cpuMeta) S.cpuMeta.moved = true;
+      a.seat = 0; applyCpu(a); pump(); return;
+    }
     if (ui.mode !== "online" || !room) return;
     a.seat = ME(); ui.sel = null;
     room.act(a).then((r) => { if (r && !r.ok) oops(r.message || "That move didn't go through."); });
@@ -1254,6 +1294,9 @@
       sw("doctorSelf", esc(RN("doctor")) + " may guard self") + sw("guardRepeat", "Same guard two nights") + sw("witchSelfHeal", esc(RN("witch")) + " may heal self") + sw("witchBoth", "Both potions one night") +
       '<div class="set-row"><span class="sl">Wolves win at</span>' + seg("win", [["parity", "Equal"], ["all", "All dead"]], o.win) + "</div></div>" +
       (ui.mode === "online" && ui.view === "game" && ui.osnap && ui.osnap.code ? '<div class="set-group"><p class="label">Room ' + esc(ui.osnap.code) + '</p><div class="set-row"><span class="sl">' + (ui.osnap.isHost && ui.osnap.status === "lobby" ? "Close the room for everyone" : "A computer takes your seat") + '</span><button class="btn" data-act="leaveRoom">' + (ui.osnap.isHost && ui.osnap.status === "lobby" ? "Close room" : "Leave room") + "</button></div></div>" : "") +
+      (CO() || PF() ? '<div class="set-group"><p class="label">Learn</p>' +
+        (CO() ? '<div class="set-row"><span class="sl">How to play</span><button class="btn" data-act="rulesSheet">Rules</button></div><div class="set-row"><span class="sl">Guided first game</span><button class="btn" data-act="tutorial">Replay tutorial</button></div>' : "") +
+        (PF() ? '<div class="set-row"><span class="sl">Wins, levels, awards, Daily</span><button class="btn" data-act="stats">My stats</button></div>' : "") + "</div>" : "") +
       '<p class="muted" style="font-size:12px;margin:0">' + esc(window.WW_BUILD || "") + "</p>";
     openSheet("Settings", body);
     const fxBox = document.getElementById("fxSet");
@@ -1295,16 +1338,31 @@
     ui.mode = "table"; ui.view = "game"; ui.dealOpen = false; ui.tab = "play"; ui.sel = null; ui.nightKey = null;
     save(); render();
   }
-  function startCpu() {
-    const n = S.cpuCount;
+  // kind: undefined (your setup), "daily" (today's deal, the same for everyone) or "tutorial" (the guided first game).
+  function startCpu(kind) {
+    const P = PF();
+    if (kind === "daily" && !P) return;
+    if (kind === "tutorial" && !CO()) return;
+    let n = S.cpuCount, setup = currentSetup(n), opts = S.settings.opts, level = S.settings.level, rng = null, roles = null;
+    if (kind === "daily") {
+      n = WP.DAILY.players; setup = WP.DAILY.setup; opts = W.RULESETS.ultimate.opts; level = WP.DAILY.level;
+      rng = W.mulberry32(P.daily.seed(P.daily.date(), "deal"));
+    } else if (kind === "tutorial") {
+      roles = WC.ROLES; n = roles.length; setup = {}; roles.forEach((r) => { setup[r] = (setup[r] || 0) + 1; });
+      opts = W.RULESETS.ultimate.opts; level = "easy"; rng = W.mulberry32(WC.SEED);
+    }
     const names = cpuNames(n);
-    const setup = currentSetup(n);
     const prob = W.setupProblem(W.normalizeSetup(setup, n), n);
     if (prob) { oops(prob); return; }
+    abandonCpu();
     ui.gen++;
-    const g = W.newGame(names, setup, { opts: S.settings.opts, mode: "seats", kinds: names.map((_, i) => (i ? "bot" : "human")) });
-    g.players.forEach((p) => { if (p.id) p.level = S.settings.level; });
+    const g = W.newGame(names, setup, { opts, mode: "seats", rng: rng || undefined, roles: roles || undefined, kinds: names.map((_, i) => (i ? "bot" : "human")) });
+    g.players.forEach((p) => { if (p.id) p.level = level; });
     S.cpu = g;
+    S.cpuUndo = [];
+    S.cpuMeta = { helped: false, daily: kind === "daily" ? P.daily.date() : null, tutorial: kind === "tutorial", recorded: false, moved: false };
+    if (CO()) CO().closeOffer();
+    if (tour) { if (kind === "tutorial") { tour.reset(); tour.start(); } else tour.stop(); }
     ui.mode = "cpu"; ui.view = "game"; ui.tab = "play"; ui.sel = null;
     ui.cpuSeen = false;
     save();
@@ -1317,6 +1375,52 @@
     const partners = me.role === "wolf" ? g.players.filter((x) => x.role === "wolf" && x.id !== me.id).map((x) => esc(x.name)) : [];
     openSheet("Your card", '<div class="deal" style="padding:0"><div class="flip open" style="width:180px"><span class="flip-in"><span class="face back">' + art(null, 180) + '</span><span class="face front">' + art(me.role, 180) + '</span></span></div><p class="role-title ' + team(me.role) + '">' + esc(RN(me.role)) + '</p><p class="role-help">' + esc(roleHelp(me.role, g)) + (me.role === "wolf" ? "<br><b>" + (partners.length ? "Your pack: " + partners.join(", ") : "You hunt alone.") + "</b>" : "") + masonLine(g, me) + "</p></div>", '<button class="btn primary big" data-act="cpuBegin">' + (ui.mode === "online" ? "Got it" : g.opts.dayFirst ? "Start the day" : "Start the night") + "</button>");
     ui.sheet = "cpuCard"; sfx("cardFlip");
+  }
+
+  // ------------------------------------------------------------ My stats, Daily, rules sheet
+  // One result per game vs computer: at the end, or as a loss when a new game replaces one you had moved in.
+  function recordCpu() {
+    const P = PF(), m = S.cpuMeta, g = S.cpu;
+    if (!P || !m || !g || m.recorded || m.tutorial) return;
+    if (!g.winner && !m.moved) return;
+    m.recorded = true; save();
+    try {
+      const r = WP.result(g, 0, m);
+      if (r.daily && m.daily !== P.daily.date()) r.daily = false; // a Daily finished after midnight counts as a normal game
+      P.recordResult(r);
+    } catch (e) { /* stats never break the game */ }
+  }
+  function abandonCpu() { if (S.cpu && !S.cpu.winner) recordCpu(); }
+  function dailyDone() { try { return !!(PF() && PF().daily.played()); } catch (e) { return false; } }
+  function startDaily() {
+    if (!PF()) return;
+    if (PF().isOpen()) PF().closePanel();
+    if (dailyDone()) { toast("Today's Daily is done. A new one comes tomorrow."); return; }
+    closeSheet(); leaveGame();
+    startCpu("daily");
+  }
+  function openStats() {
+    if (!PF()) return;
+    closeSheet();
+    PF().openPanel();
+    syncHistory();
+  }
+  function openRules() {
+    if (!CO()) return;
+    closeSheet();
+    const nm = {}; W.ROLE_KEYS.forEach((r) => { nm[r] = RN(r); }); nm.wolves = TH().wolves; nm.village = TH().village;
+    CO().rules(Object.assign({}, WC.rules(nm), { onClose: () => setTimeout(syncHistory, 0) }));
+    syncHistory();
+  }
+  function startTutorial() {
+    if (S.cpu && !S.cpu.winner && !(S.cpuMeta && S.cpuMeta.tutorial) && S.cpuMeta && S.cpuMeta.moved) { toast("Finish or leave your game vs computer first."); return; }
+    closeSheet(); leaveGame();
+    startCpu("tutorial");
+  }
+  function offerTutorial() {
+    const C = CO();
+    if (!C || !tour || C.offered(WC.ID) || ui.view !== "setup" || ui.setupMode !== "cpu" || (S.cpu && !S.cpu.winner)) return;
+    C.offer({ id: WC.ID, title: "New to Werewolf?", text: "Play one guided game as the Seer against Easy computers.", yes: "Teach me", no: "No thanks", onYes: startTutorial });
   }
 
   // ------------------------------------------------------------ events
@@ -1446,14 +1550,24 @@
       case "claimT": ui.claim.target = id; if (ui.sheet === "claim") claimSheet(); else cpuClaimSheet(); return;
       case "claimSave": act({ type: "claim", by: ui.claim.by, target: ui.claim.target, wolf: el.dataset.w === "1" }); closeSheet(); render(); return;
       case "unclaim": act({ type: "unclaim", index: +el.dataset.i }); render(); return;
+      case "stats": openStats(); return;
+      case "daily": startDaily(); return;
+      case "rulesSheet": openRules(); return;
+      case "tutorial": startTutorial(); return;
       case "undo": {
+        if (ui.mode === "cpu") {
+          if (!S.cpuUndo.length || (S.cpuMeta && S.cpuMeta.daily)) return;
+          leaveGame();
+          S.cpu = S.cpuUndo.pop(); if (S.cpuMeta) S.cpuMeta.helped = true;
+          ui.sel = null; ui.fxSkip = true; save(); render(); pump(); return;
+        }
         if (!S.undo.length) return;
         window.Narrator.stop();
         S.game = S.undo.pop(); ui.sel = null; ui.fxSkip = true; save(); render(); return;
       }
       case "tab": ui.tab = el.dataset.t; render(); return;
       case "timer": toggleTimer(); return;
-      case "hint": toast(hintText()); return;
+      case "hint": if (ui.mode === "cpu" && S.cpuMeta && !S.cpuMeta.helped) { S.cpuMeta.helped = true; save(); } toast(hintText()); return;
       case "again": {
         leaveGame();
         if (ui.mode === "cpu") { startCpu(); return; }
@@ -1522,12 +1636,21 @@
     if (fxEv && fxEv.length) { try { window.WWFX.fire(fxEv); } catch (e) { /* effects never break the game */ } }
     if (ui.view === "game" && ui.mode === "table" && S.game && S.game.phase === "night" && ui.nightKey !== nightKey(S.game)) enterNightStep();
     syncHistory();
+    const C = CO();
+    if (C) {
+      try {
+        if (ui.view === "setup" && ui.setupMode === "cpu") offerTutorial(); else C.closeOffer();
+        C.update();
+      } catch (e) { /* the coach never breaks the game */ }
+    }
   };
+  const overlayOpen = () => !!((CO() && CO().rulesOpen()) || (PF() && PF().isOpen()));
   // ---- the phone's Back (swipe / browser button) goes to the screen you were just on,
   // never out of the app: one history entry per level below the menu.
   function screenDepth() {
     const v = ui.view;
-    const sheet = $sheet.classList.contains("hidden") ? 0 : 1; // an open sheet is one more step
+    // an open sheet is one more step; so is the rules sheet or My stats on top
+    const sheet = ($sheet.classList.contains("hidden") ? 0 : 1) + (overlayOpen() ? 1 : 0);
     if (v === "home") return sheet;
     if (v === "setup") return (ui.setupMode === "online" ? 2 : 1) + (ui.setupStep === 2 ? 1 : 0) + sheet;
     return 1 + sheet; // game, lab, rules, online
@@ -1544,6 +1667,8 @@
   window.addEventListener("popstate", () => {
     if (ui.popSkip) { ui.popSkip--; return; }
     ui.hd = Math.max(0, ui.hd - 1);
+    if (CO() && CO().rulesOpen()) { CO().closeRules(); return; }
+    if (PF() && PF().isOpen()) { PF().closePanel(); return; }
     if (!$sheet.classList.contains("hidden")) {
       // An open sheet closes first.
       handle("closeSheet", $sheet, null); return;
@@ -1688,7 +1813,36 @@
     else if (ui.view === "home") render();
   });
 
+  // ------------------------------------------------------------ kits: My stats, coach, install / offline
+  if (WP && window.Profile) {
+    WP.init(startDaily);
+    window.Profile.onChange((what) => {
+      if (what === "close") setTimeout(syncHistory, 0);
+      if (what === "me" && (ui.view === "home" || ui.view === "game" || ui.view === "setup")) render(); // new picture or name
+    });
+  }
+  if (CO()) {
+    tour = CO().tour({
+      id: WC.ID,
+      steps: WC.steps({ state: () => (S.cpuMeta && S.cpuMeta.tutorial ? S.cpu : null), sel: () => ui.sel }),
+      pauseIf: () => ui.view !== "game" || ui.mode !== "cpu" || ui.tab !== "play" || !S.cpu || !(S.cpuMeta && S.cpuMeta.tutorial) || !$sheet.classList.contains("hidden") || overlayOpen(),
+    });
+  }
+  // A reload is harmless only where nothing is in flight: no room, nothing open, no typing, a quiet screen.
+  if (window.PWA) window.PWA.safeToReload = () => {
+    if (ui.mode === "online" && ui.view === "game") return false;
+    if (S.online || !$sheet.classList.contains("hidden") || overlayOpen()) return false;
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return false;
+    // A game in progress (even saved) waits for the pill: when in doubt, don't reload.
+    if ((S.cpu && !S.cpu.winner) || (S.game && !S.game.winner)) return false;
+    if (ui.view === "home" || ui.view === "rules") return true;
+    return ui.view === "game" && !!G() && !!G().winner;
+  };
+
   // Debug/test hook (used by headless checks): window.__ww
-  window.__ww = { S: () => S, ui, W, room: () => room, fit: { layoutTables, applyFit, seatClashes } };
+  window.__ww = { S: () => S, ui, W, room: () => room, fit: { layoutTables, applyFit, seatClashes }, startCpu, tour: () => tour };
   render();
+  // A guided game left half-way: pick the tour up where it was (it shows once you open the game).
+  if (tour && S.cpuMeta && S.cpuMeta.tutorial && S.cpu && !S.cpu.winner && tour.saved()) tour.resume();
 })();

@@ -1,5 +1,11 @@
 # Werewolf / Mafia — session log
 
+## 2026-10-27 — improve pass (builder agent, from the manager's per-game brief)
+- **Asked** (manager): Hard must beat Medium ≥ 65%; standard variants; rival's best features; Undo vs computer; shared kits `_coach`, `_profile` (stats, achievements, Daily), `_pwa` 1.2.0, `_fx`; bigger key-moment animation; avatars on plates; more Ultimate roles; two-column laptop home; table preview in the phone setup's empty lower third.
+- **Built**: Smart re-tune + Mason/Prince (commit 945e8a4); kits copied unchanged + `js/wwcoach.js`, `js/wwprofile.js`; Undo, Daily, guided first game, My stats pill, Settings → Learn, name-hashed plate avatars, setup table preview, laptop card fan, `spotlight()` card zoom in game-fx.js.
+- **Verified**: `node tests/run.js` 57 passed; `tools/pwa-check.mjs` 18/18; guided game driven to the end (10 steps, not recorded); recording drive (rated loss, Undo → "with help", quit → loss); sizes at 320, 659×393, 393, 1280, 1440 with no overflow or errors; layout-check WebKit pass.
+- **Open**: see NOT verified (real iPhone install/offline, pwa-check not run fail-first).
+
 ## 2026-10-21 → 10-27 — visibility pass (builder agents; paused 10-21, finished 10-27)
 - **Asked** (Tim via manager): "Fix this so the view of what's happening and where everything is is very clear. Consider parts of the board that are dense in what's happening and if the user can reasonably see it." (full quote in progress.md)
 - **Built** (`js/app.js`, `styles.css`): `layoutTables()` now grows the cards to the largest size where no two seats touch and nothing pokes off the table (each card style scaled smoothly, text floors 10 px names / 12 px odds); seats clamp by their widest label, so role labels no longer push the fit to the smallest card; the middle gets three tries (all news in view → scrolling only if roomy → seats alone); same seats keep the same size when the footer wraps. Landscape phone: table takes full height, stat line + buttons in a right column. New `tools/qa/layout-check.mjs`.

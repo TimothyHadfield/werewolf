@@ -1,0 +1,10 @@
+{
+  "repo": "werewolf",
+  "ready": "!!(window.__ww && document.querySelector('.menu-item'))",
+  "play": [
+    "(async () => { const w = ms => new Promise(r => setTimeout(r, ms)); if (window.COACH) COACH.closeOffer(); const ww = window.__ww; ww.S().settings.opts.dayFirst = true; ww.startCpu(); await w(500); document.querySelector('[data-act=cpuBegin]').click(); for (let i = 0; i < 300 && ww.S().cpu.ballots[0] == null; i++) { await w(150); if (ww.ui.sel == null) { const s = document.querySelector('.ww-seat:not([disabled])'); if (s) s.click(); } else { const v = document.querySelector('[data-act=cpuVote]:not([disabled])'); if (v) v.click(); } } })()"
+  ],
+  "played": "(() => { const g = window.__ww.S().cpu; return !!g && g.log.some(e => (e.t === 'vote' || e.t === 'novote' || e.t === 'spared') && e.day === 1); })()",
+  "safe": "(() => { const ww = window.__ww; const g = ww.S().cpu; if (g) g.winner = 'village'; const b = document.querySelector('[data-act=home]'); if (b) b.click(); })()",
+  "debug": "JSON.stringify((() => { const g = window.__ww.S().cpu; return g ? { phase: g.phase, day: g.day, ballots: g.ballots, log: g.log.length } : null; })())"
+}
