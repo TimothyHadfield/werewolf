@@ -5,7 +5,7 @@ const W = require("../js/engine.js");
 // full state must equal its move from view(state, seat): proof it never
 // peeks at hidden cards.
 test("computer players only use what their seat can see", () => {
-  const setups = [{ wolf: 2, seer: 1, doctor: 1, witch: 1, hunter: 1, villager: 3 }, { wolf: 1, seer: 1, bodyguard: 1, villager: 3 }];
+  const setups = [{ wolf: 2, seer: 1, doctor: 1, witch: 1, hunter: 1, villager: 3 }, { wolf: 1, seer: 1, bodyguard: 1, villager: 3 }, { wolf: 2, seer: 1, mason: 2, prince: 1, villager: 3 }];
   let checked = 0;
   ["easy", "normal", "smart"].forEach((level, li) => {
     setups.forEach((setup, si) => {

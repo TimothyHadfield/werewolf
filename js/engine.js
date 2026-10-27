@@ -17,9 +17,9 @@
 (function (root) {
   "use strict";
 
-  const ROLE_KEYS = ["wolf", "seer", "doctor", "bodyguard", "witch", "hunter", "villager"];
-  const NIGHT_ORDER = ["seer", "doctor", "bodyguard", "wolf", "witch"];
-  const TEAM = { wolf: "wolves", seer: "village", doctor: "village", bodyguard: "village", witch: "village", hunter: "village", villager: "village" };
+  const ROLE_KEYS = ["wolf", "seer", "doctor", "bodyguard", "witch", "hunter", "mason", "prince", "villager"];
+  const NIGHT_ORDER = ["mason", "seer", "doctor", "bodyguard", "wolf", "witch"];
+  const TEAM = { wolf: "wolves", seer: "village", doctor: "village", bodyguard: "village", witch: "village", hunter: "village", mason: "village", prince: "village", villager: "village" };
 
   const DEFAULT_OPTS = {
     firstNightKill: false, // wolves kill on night 1 (off = they only meet)
@@ -47,18 +47,20 @@
     return Math.max(1, Math.round(n / 3)); // Mafia: about a third
   }
   // Ultimate Werewolf's printed balance points (Doctor from the German Healer card).
-  const UW_POINTS = { wolf: -6, seer: 7, doctor: 3, bodyguard: 3, witch: 4, hunter: 3, villager: 1 };
+  const UW_POINTS = { wolf: -6, seer: 7, doctor: 3, bodyguard: 3, witch: 4, hunter: 3, mason: 2, prince: 3, villager: 1 };
   function uwPoints(setup) { return ROLE_KEYS.reduce((s, k) => s + (setup[k] || 0) * UW_POINTS[k], 0); }
 
   const THEMES = {
     werewolf: {
       wolf: ["Werewolf", "Werewolves"], seer: ["Seer", "Seers"], doctor: ["Doctor", "Doctors"],
       bodyguard: ["Bodyguard", "Bodyguards"], witch: ["Witch", "Witches"], hunter: ["Hunter", "Hunters"],
+      mason: ["Mason", "Masons"], prince: ["Prince", "Princes"],
       villager: ["Villager", "Villagers"], village: "Village", wolves: "Werewolves", title: "Werewolf",
     },
     mafia: {
       wolf: ["Mafia", "Mafia"], seer: ["Detective", "Detectives"], doctor: ["Doctor", "Doctors"],
       bodyguard: ["Bodyguard", "Bodyguards"], witch: ["Witch", "Witches"], hunter: ["Hunter", "Hunters"],
+      mason: ["Mason", "Masons"], prince: ["Prince", "Princes"],
       villager: ["Citizen", "Citizens"], village: "Town", wolves: "Mafia", title: "Mafia",
     },
   };
@@ -70,6 +72,8 @@
     bodyguard: "Each night, guard one other player from the wolves.",
     witch: "You see who the wolves attacked. One heal and one poison for the whole game.",
     hunter: "When you die, you shoot one player and take them with you.",
+    mason: "On the first night the Masons wake and see each other. No other power.",
+    prince: "If the table votes you out, your card is shown and you stay in.",
     villager: "No night power. Find the wolves by talking and vote them out.",
   };
 
@@ -167,11 +171,13 @@
 
   // Every role in the setup is called at night, dead or alive, so the
   // narration never tells the table which roles are gone.
-  function nightSteps(g) { return NIGHT_ORDER.filter((r) => (g.setup[r] || 0) > 0); }
+  // Masons only meet on night 1, and only at a real table (seat games show them each other on screen).
+  function nightSteps(g) { return NIGHT_ORDER.filter((r) => (g.setup[r] || 0) > 0 && (r !== "mason" || (g.nightNo === 1 && g.mode !== "seats" && g.setup.mason > 1))); }
   function currentStep(g) { return g.night ? g.night.steps[g.night.i] || null : null; }
   // A step with nobody to act (role dead, or wolves' meet-only first night).
   function stepIsIdle(g, step) {
     if (step === "wolf") return !aliveRole(g, "wolf") || (g.nightNo === 1 && !g.opts.firstNightKill);
+    if (step === "mason") return true; // they only open their eyes and see each other
     return !aliveRole(g, step);
   }
 
@@ -430,6 +436,12 @@
         if (g.phase !== "day") fail("Not day");
         const p = g.players[a.target];
         if (!p || !p.alive) fail("Pick a living player");
+        if (p.role === "prince") { // the Prince shows the card and stays in
+          p.revealed = true;
+          g.log.push({ t: "spared", day: g.day, target: a.target, counts: a.counts || null });
+          g.phase = "dusk";
+          return;
+        }
         kill(g, a.target, "vote");
         g.log.push({ t: "vote", day: g.day, target: a.target, counts: a.counts || null });
         g.phase = "dusk";
@@ -455,7 +467,8 @@
           Object.keys(r.counts).forEach((k) => { if (+k >= 0) counts[k] = r.counts[k]; });
           const ballots = Object.assign({}, g.ballots);
           const out = r.top.length === 1 && r.top[0] >= 0 ? r.top[0] : null;
-          if (out != null) { kill(g, out, "vote"); g.log.push({ t: "vote", day: g.day, target: out, counts, ballots }); }
+          if (out != null && g.players[out].role === "prince") { g.players[out].revealed = true; g.log.push({ t: "spared", day: g.day, target: out, counts, ballots }); }
+          else if (out != null) { kill(g, out, "vote"); g.log.push({ t: "vote", day: g.day, target: out, counts, ballots }); }
           else g.log.push({ t: "novote", day: g.day, counts, ballots, tie: r.top.length > 1 });
           g.phase = "dusk";
           checkWinner(g);
@@ -506,9 +519,10 @@
     const me = seat == null ? null : g.players[seat];
     const over = !!g.winner;
     const wolfView = me && me.role === "wolf";
+    const masonView = me && me.role === "mason";
     v.players.forEach((p) => {
       const own = me && p.id === me.id;
-      const see = over || p.revealed || own || (wolfView && p.role === "wolf");
+      const see = over || p.revealed || own || (wolfView && p.role === "wolf") || (masonView && p.role === "mason");
       if (!see) p.role = null;
     });
     if (!over) {
@@ -651,6 +665,7 @@
     const me = g.players[seat];
     const wolves = new Set(), cleared = new Set([seat]);
     if (me.role === "wolf") g.players.forEach((p) => { if (p.role === "wolf") wolves.add(p.id); });
+    if (me.role === "mason") g.players.forEach((p) => { if (p.role === "mason") cleared.add(p.id); });
     if (me.role === "seer") g.seerLog.forEach((r) => { if (r.by === seat) (r.wolf ? wolves : cleared).add(r.target); });
     g.players.forEach((p) => { if (p.revealed) (p.role === "wolf" ? wolves : cleared).add(p.id); });
     const bs = believedSeer(g);
@@ -677,6 +692,31 @@
   function oddsFor(g, seat) {
     try { return wolfOdds(oddsInfo(g, seat)).odds; } catch (e) { return {}; }
   }
+  // What the vote record says, from public facts only (ballots are public once a vote is
+  // counted; cards are public once shown): who stood apart from a vote that caught a
+  // wolf, and who pushed a vote that hit a villager.
+  function voteRecord(g) {
+    const s = {};
+    g.log.forEach((e) => {
+      if (e.t !== "vote" || !e.ballots) return;
+      const out = g.players[e.target];
+      if (!out || !out.revealed) return;
+      const wolfOut = out.role === "wolf";
+      Object.keys(e.ballots).forEach((k) => {
+        const by = +k, b = e.ballots[k];
+        if (by === e.target || b < 0) return;
+        if (wolfOut) s[by] = (s[by] || 0) + (b === e.target ? -0.12 : 0.3);
+        else if (b === e.target) s[by] = (s[by] || 0) + 0.1;
+      });
+    });
+    return s;
+  }
+  // Smart computers' shared suspicion: the table's exact odds plus the vote record.
+  function smartPublic(g) {
+    const odds = oddsFor(g, null), vr = voteRecord(g), out = {};
+    g.players.forEach((p) => { out[p.id] = (odds[p.id] || 0) + (vr[p.id] || 0); });
+    return out;
+  }
   // Top candidate by score, ties broken the same way by every bot today.
   function topBy(g, ids, score, salt) {
     let best = null, bs = -Infinity, bh = 0;
@@ -688,6 +728,7 @@
     return best;
   }
 
+  const FAKE_CLAIM_PCT = 20;
   function botAction(g, seat, rng, level) {
     level = level || g.players[seat].level || "normal";
     const me = g.players[seat];
@@ -786,7 +827,12 @@
       // Claims first (a Seer who found a wolf tells everything they know).
       if (level !== "easy" && me.role === "seer") {
         const mine = g.seerLog.filter((r) => r.by === seat);
-        const found = mine.some((r) => r.wolf);
+        // Smart: someone else claiming to be the Seer is lying, so call them out (unless checked clean).
+        if (level === "smart" && !g.claims.some((c) => c.by === seat)) {
+          const fake = g.claims.find((c) => c.by !== seat && g.players[c.by].alive && !mine.some((r) => r.target === c.by && !r.wolf));
+          if (fake) return { type: "claim", seat, target: fake.by, wolf: true };
+        }
+        const found = mine.some((r) => r.wolf) || (level === "smart" && g.claims.some((c) => c.by === seat));
         if (found) {
           const said = new Set(g.claims.filter((c) => c.by === seat).map((c) => c.target));
           const next = mine.find((r) => !said.has(r.target) && g.players[r.target]);
@@ -798,19 +844,32 @@
         const ws = livingWolves(g).map((p) => p.id).sort((a, b) => a - b);
         const accuse = g.claims.find((c) => c.wolf && g.players[c.target].role === "wolf" && g.players[c.by].role !== "wolf" && g.players[c.by].alive);
         if (accuse && ws[0] === seat && !g.claims.some((c) => c.by === seat)) return { type: "claim", seat, target: accuse.by, wolf: true };
+        // Sometimes a wolf claims to be the Seer first, so "the second claimer is the wolf" can't be learned.
+        // Decided once per seat and day from the game's seed (the same answer however often it's asked).
+        const wolfClaimed = g.claims.some((c) => g.players[c.by].role === "wolf");
+        if (!wolfClaimed && g.day <= 2 && hash3(g.seed, g.day * 7 + 3, seat) % 100 < FAKE_CLAIM_PCT) {
+          const pool = others.filter((id) => g.players[id].role !== "wolf" && !g.players[id].revealed);
+          if (pool.length) return { type: "claim", seat, target: pool[hash3(g.seed, g.day, seat + 50) % pool.length], wolf: true };
+        }
       }
       if (!others.length) return { type: "ballot", seat, target: null };
       if (level === "easy") return { type: "ballot", seat, target: pick(others, rng) };
       const K = knowledge(g, seat);
-      const odds = level === "smart" ? oddsFor(g, seat) : null;
+      // Smart: the table's odds plus the vote record (public, so the village agrees on one target);
+      // the seat's own knowledge (its card, its Seer checks) still overrides.
+      const odds = level === "smart" ? smartPublic(g) : null;
       const susp = (id) => K.wolves.has(id) ? 2 : K.cleared.has(id) ? -1 : odds ? odds[id] || 0 : 0;
       if (me.role === "wolf") {
         // Join the village's likely target unless it's a wolf; then push a villager.
         const P = publicKnowledge(g);
-        const pubOdds = level === "smart" ? oddsFor(g, null) : null;
+        const pubOdds = level === "smart" ? smartPublic(g) : null;
         const villageView = (id) => P.wolves.has(id) ? 2 : P.cleared.has(id) ? -1 : pubOdds ? pubOdds[id] || 0 : 0;
         const consensus = topBy(g, others, villageView, 1);
         if (consensus != null && g.players[consensus].role !== "wolf") return { type: "ballot", seat, target: consensus };
+        // Smart wolves don't stand apart when the village has a partner: the vote record would give them away.
+        // (Close to the end, when their votes could still save the partner, they fight for them.)
+        const nW = livingWolves(g).length, nV = L.length - nW;
+        if (level === "smart" && consensus != null && nV - nW >= 3) return { type: "ballot", seat, target: consensus };
         const nonWolves = others.filter((id) => g.players[id].role !== "wolf");
         return { type: "ballot", seat, target: nonWolves.length ? topBy(g, nonWolves, villageView, 2) : null };
       }

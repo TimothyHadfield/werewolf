@@ -40,6 +40,8 @@ Werewolf has no single official rulebook. The app follows three published versio
 | Bodyguard | Guards one *other* player. Not the same player two nights running. | UW rulebook + Ultimate Edition summary | checked (2 sources). MH's Savior may guard self (French fan sources only) — not modelled separately |
 | Witch | Sees the wolves' target. One heal and one poison per game. May heal herself (`witchSelfHeal`, on), may use both in one night (`witchBoth`, on). Poison can't be blocked by guards. | MH PDF + Board Game Arena | checked. **Not built:** UW's rule that she stops being shown the victim once she has used a power |
 | Hunter | When killed (night or vote), shoots one player right away; may fire into the air. The game isn't decided until the shot. | MH PDF, BGA, UW summary | checked |
+| Mason (added 10-27) | The Masons wake on the first night and see each other; no other power. In seat games (vs computer, online) each Mason's card names the others. Custom setups only, 0–3. | [UW rulebook](https://rulespal.com/ultimate-werewolf/rulebook) (Mason, +2 points) | checked (1 source) |
+| Prince (added 10-27) | If voted out, the card is shown and the Prince stays in the game (every time: the card says "you are not eliminated"). Wolves can still kill the Prince at night. Custom setups only. | UW rulebook (Prince, +3 points) | checked (1 source). **App reading:** the power works on every vote, not only the first |
 | Villager | No power. | all | checked |
 
 ## Numbers
@@ -55,5 +57,5 @@ Werewolf has no single official rulebook. The app follows three published versio
 - Millers Hollow **Sheriff** (elected, vote counts double, names a successor). Its tie rules are fan house rules.
 - UW tie variants **Secret Ballot** (all tied players die) and **German Style** (revote between tied players).
 - UW "reveal team only" and "reveal wolf/villager only".
-- Extra roles: Cupid/Lovers, Thief, Little Girl, Mason, Lycan, Minion, Tanner, Apprentice Seer, Priest, Scapegoat.
+- Extra roles: Cupid/Lovers, Thief, Little Girl, Lycan, Minion, Tanner, Apprentice Seer, Priest, Scapegoat. (Mason and Prince were added 10-27: neither needs a new kind of night action or changes the wolf-odds maths. Lycan and Minion would change what a Seer result means, so the exact odds would need a rewrite.)
 - Witch "stops seeing the victim after using a power" (UW).

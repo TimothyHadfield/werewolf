@@ -1,6 +1,6 @@
 /* Werewolf / Mafia — original card art as SVG strings (browser + Node). No DOM.
  *
- *   WWArt.role(key, theme, size) -> "<svg ...>"   key: wolf seer doctor bodyguard witch hunter villager
+ *   WWArt.role(key, theme, size) -> "<svg ...>"   key: wolf seer doctor bodyguard witch hunter mason prince villager
  *                                                  theme: "werewolf" (default) or "mafia"
  *   WWArt.back(size)             -> card back
  *   WWArt.moon(size) / WWArt.sun(size) -> small 24x24 icons
@@ -15,7 +15,7 @@
   let uid = 0;
   const next = () => "wa" + (++uid).toString(36);
 
-  const TEAM = { wolf: "wolves", seer: "village", doctor: "village", bodyguard: "village", witch: "village", hunter: "village", villager: "village" };
+  const TEAM = { wolf: "wolves", seer: "village", doctor: "village", bodyguard: "village", witch: "village", hunter: "village", mason: "village", prince: "village", villager: "village" };
 
   // Per-team palette: sky (top, bottom), frame colour, ornament colour.
   const PAL = {
@@ -31,6 +31,8 @@
     bodyguard: ["#9fc3ff", "#2a4d8a"],
     witch: ["#c49bff", "#4b2a7a"],
     hunter: ["#f0b354", "#7a4a12"],
+    mason: ["#d7b48a", "#6b4a2a"],
+    prince: ["#ffd66e", "#8a5a12"],
     villager: ["#f0b354", "#6b4718"],
   };
 
@@ -285,9 +287,47 @@ ${arrow(false)}${arrow(true)}
 <path d="M46 66C49 62 54 60 58 60" stroke="#fff" stroke-width="1.2" fill="none" opacity=".35" stroke-linecap="round"/>`;
   }
 
+  // Mason: a stone arch being built, a trowel across it (the two Masons' shared work).
+  function masonArch(id, a) {
+    let bricks = "";
+    const row = (y, off, n) => { for (let i = 0; i < n; i++) bricks += `<rect x="${(26 + off + i * 14).toFixed(1)}" y="${y}" width="12.6" height="7" rx="1.2"/>`; };
+    row(110, 0, 5); row(102, 7, 4); row(94, 0, 2); row(94, 56, 2); row(86, 7, 1); row(86, 49, 1);
+    return `
+<defs>
+  <linearGradient id="${id}st" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cdb89c"/><stop offset="1" stop-color="#7d6a52"/></linearGradient>
+  <linearGradient id="${id}bl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9edf5"/><stop offset="1" stop-color="#8e96a8"/></linearGradient>
+</defs>
+<g fill="url(#${id}st)" stroke="#3b2e20" stroke-width=".8">${bricks}</g>
+<path d="M40 86C40 66 48 56 60 56C72 56 80 66 80 86" fill="none" stroke="url(#${id}st)" stroke-width="9"/>
+<path d="M40 86C40 66 48 56 60 56C72 56 80 66 80 86" fill="none" stroke="#3b2e20" stroke-width=".8" stroke-dasharray="7 2"/>
+<path d="M56 52L64 52L62 60L58 60Z" fill="${a[0]}" stroke="#3b2e20" stroke-width=".8"/>
+<g transform="rotate(-28 70 72)">
+  <path d="M58 70H86L80 80H64Z" fill="url(#${id}bl)" stroke="#2c2f3d" stroke-width="1"/>
+  <path d="M72 70V62" stroke="#2c2f3d" stroke-width="2"/>
+  <rect x="68" y="50" width="8" height="13" rx="3" fill="${a[1]}" stroke="#2c160c" stroke-width=".8"/>
+</g>`;
+  }
+
+  // Prince: a crown on a cushion.
+  function crown(id, a) {
+    return `
+<defs>
+  <linearGradient id="${id}gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset=".5" stop-color="${a[0]}"/><stop offset="1" stop-color="${a[1]}"/></linearGradient>
+  <linearGradient id="${id}cu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b0485a"/><stop offset="1" stop-color="#5e1a2a"/></linearGradient>
+</defs>
+<path d="M26 112C26 102 40 98 60 98C80 98 94 102 94 112C94 122 80 126 60 126C40 126 26 122 26 112Z" fill="url(#${id}cu)" stroke="#3a0e18" stroke-width="1"/>
+<circle cx="28" cy="112" r="3" fill="${a[0]}"/><circle cx="92" cy="112" r="3" fill="${a[0]}"/>
+<path d="M36 100L32 62L48 78L60 52L72 78L88 62L84 100Z" fill="url(#${id}gd)" stroke="${a[1]}" stroke-width="1.4" stroke-linejoin="round"/>
+<path d="M36 92H84V100H36Z" fill="${a[1]}" opacity=".55"/>
+<circle cx="32" cy="60" r="3.4" fill="#fff6d0"/><circle cx="60" cy="49" r="4" fill="#fff6d0"/><circle cx="88" cy="60" r="3.4" fill="#fff6d0"/>
+<circle cx="60" cy="86" r="5" fill="#6ea8fe" stroke="#fff" stroke-width=".8"/>
+<circle cx="45" cy="88" r="3" fill="#e0605a"/><circle cx="75" cy="88" r="3" fill="#e0605a"/>
+<path d="M40 70L44 90" stroke="#fff" stroke-width="1.6" opacity=".45" stroke-linecap="round"/>`;
+  }
+
   const EMBLEM = {
-    werewolf: { wolf: wolfHead, seer: eye, doctor: cross, bodyguard: shield, witch: potions, hunter: hunterMark, villager: cottage },
-    mafia: { wolf: fedora, seer: magnifier, doctor: cross, bodyguard: shield, witch: potions, hunter: hunterMark, villager: citizen },
+    werewolf: { wolf: wolfHead, seer: eye, doctor: cross, bodyguard: shield, witch: potions, hunter: hunterMark, mason: masonArch, prince: crown, villager: cottage },
+    mafia: { wolf: fedora, seer: magnifier, doctor: cross, bodyguard: shield, witch: potions, hunter: hunterMark, mason: masonArch, prince: crown, villager: citizen },
   };
 
   /* ---------- card frame ---------- */
