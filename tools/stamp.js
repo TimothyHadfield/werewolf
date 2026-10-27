@@ -7,5 +7,5 @@ const d = new Date();
 const id = d.toISOString().slice(0, 10) + "." + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0");
 fs.writeFileSync(path.join(root, "js", "build.js"), "window.WW_BUILD = \"build " + id + "\";\n");
 const f = path.join(root, "index.html");
-fs.writeFileSync(f, fs.readFileSync(f, "utf8").replace(/\?v=[^"]+/g, "?v=" + id));
+fs.writeFileSync(f, fs.readFileSync(f, "utf8").replace(/\?v=[^"]+/g, "?v=" + id).replace(/data-version="[^"]*"/g, 'data-version="' + id + '"'));
 console.log("build " + id);

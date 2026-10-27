@@ -2,3 +2,9 @@ js/fx.js -text
 js/table.js -text
 css/table.css -text
 js/online.js -text
+js/profile.js -text
+css/profile.css -text
+js/coach.js -text
+css/coach.css -text
+js/pwa.js -text
+sw.js -text
