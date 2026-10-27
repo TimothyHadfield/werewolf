@@ -1560,7 +1560,7 @@
   function getRoom() {
     if (room) return Promise.resolve(room);
     if (roomLoading) return roomLoading;
-    roomLoading = import("./online.js").then((mod) => {
+    roomLoading = import("./online.js?v=a3d0418b").then((mod) => {
       room = mod.createOnline({ game: window.WWOnline.game, gameId: "werewolf", botDelayMs: Math.round(900 * Math.max(FAST, 0.2)) });
       room.on("change", onSnap);
       room.on("error", (m) => { if (m) toast(m); });

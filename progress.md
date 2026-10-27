@@ -87,6 +87,7 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 | Game over | celebrate `win` (table phone: winners' colours) or your own `win`/`lose` (seat games) | confetti in the winning side's colours |
 
 ## Traps
+- **online.js cache stamp (2026-10-27):** `js/app.js` imports `./online.js?v=a3d0418b`, the `_online` content stamp. After a re-copy: put the new stamp from `node ../_online/tools/stamp.mjs` there, run `node tools/stamp.js` (bumps every `?v=` in index.html), then `node ../_online/tools/stamp.mjs --check .` must say OK.
 - `js/online.js` is a shared file: never edit it here.
 - The Firebase project `th-board-games` is shared by every game (Spark plan, about 15 long games a day in total). Solo play never touches the network.
 - Online: the host's phone runs the game (and the computers). If the host vanishes, another online player takes over after about 75 s (module behaviour).
