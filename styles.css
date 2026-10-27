@@ -531,4 +531,6 @@ input[type=text]:focus { outline: none; border-color: var(--accent); }
   .ww-play > .day-foot { grid-column: 2; grid-row: 2; width: 176px; flex-direction: column; justify-content: flex-end; border-top: 0; border-left: 1px solid var(--line); padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); }
   .ww-play > .day-foot .btn { flex: 0 0 auto; }
   .ww-play > .day-foot > .muted { flex: 0 0 auto !important; }
+  /* Four short buttons (Hint, Claim, Skip, Vote) sit two by two so they clear the stat lines above. */
+  .ww-play > .day-foot:has(> .btn:nth-child(4)) { display: grid; grid-template-columns: 1fr 1fr; align-content: end; }
 }
