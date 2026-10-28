@@ -42,7 +42,7 @@
     return true;
   }
 
-  const teamOf = (role) => (role === "wolf" ? "wolves" : "village");
+  const teamOf = (role) => (role === "wolf" || role === "minion" ? "wolves" : role === "tanner" ? "tanner" : "village");
 
   /** A finished (or abandoned) game vs computers -> Profile.recordResult input.
    *  g: the engine state; me: your seat; meta: { helped, daily } */
@@ -51,7 +51,7 @@
     const p = g.players[me];
     const team = teamOf(p.role);
     const over = !!g.winner;
-    const w = over && g.winner === team;
+    const w = over && (team === "tanner" ? !!g.tannerWon : g.winner === team);
     const bot = g.players.find((x) => x.id !== me && x.level);
     const mode = meta.helped ? "help" : "computer";
     const level = mode === "computer" && bot && RANK[bot.level] != null ? bot.level : null;

@@ -1,6 +1,6 @@
 /* Werewolf / Mafia — original card art as SVG strings (browser + Node). No DOM.
  *
- *   WWArt.role(key, theme, size) -> "<svg ...>"   key: wolf seer doctor bodyguard witch hunter mason prince villager
+ *   WWArt.role(key, theme, size) -> "<svg ...>"   key: wolf seer doctor bodyguard witch hunter mason prince lycan minion tanner villager
  *                                                  theme: "werewolf" (default) or "mafia"
  *   WWArt.back(size)             -> card back
  *   WWArt.moon(size) / WWArt.sun(size) -> small 24x24 icons
@@ -15,12 +15,13 @@
   let uid = 0;
   const next = () => "wa" + (++uid).toString(36);
 
-  const TEAM = { wolf: "wolves", seer: "village", doctor: "village", bodyguard: "village", witch: "village", hunter: "village", mason: "village", prince: "village", villager: "village" };
+  const TEAM = { wolf: "wolves", seer: "village", doctor: "village", bodyguard: "village", witch: "village", hunter: "village", mason: "village", prince: "village", lycan: "village", minion: "wolves", tanner: "tanner", villager: "village" };
 
   // Per-team palette: sky (top, bottom), frame colour, ornament colour.
   const PAL = {
     wolves: { skyTop: "#3a1418", skyBot: "#120a10", frame: "#e0605a", frame2: "#8e2f2c", orn: "#f08a7e", halo: "#e0605a" },
     village: { skyTop: "#1d2850", skyBot: "#0d1020", frame: "#6ea8fe", frame2: "#f0b354", orn: "#f0b354", halo: "#6ea8fe" },
+    tanner: { skyTop: "#3a2a16", skyBot: "#120d08", frame: "#d49a5a", frame2: "#6b4718", orn: "#e8b878", halo: "#d49a5a" },
   };
 
   // Emblem accent per role (light, dark).
@@ -33,6 +34,9 @@
     hunter: ["#f0b354", "#7a4a12"],
     mason: ["#d7b48a", "#6b4a2a"],
     prince: ["#ffd66e", "#8a5a12"],
+    lycan: ["#cfd6ff", "#4a4f7a"],
+    minion: ["#e0605a", "#5a1c1e"],
+    tanner: ["#d49a5a", "#5a3812"],
     villager: ["#f0b354", "#6b4718"],
   };
 
@@ -325,9 +329,64 @@ ${arrow(false)}${arrow(true)}
 <path d="M40 70L44 90" stroke="#fff" stroke-width="1.6" opacity=".45" stroke-linecap="round"/>`;
   }
 
+  // Lycan: a villager's head under the full moon, casting a wolf's shadow.
+  function lycanMoon(id, a) {
+    return `
+<defs>
+  <radialGradient id="${id}mo" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="${a[0]}"/></radialGradient>
+  <linearGradient id="${id}sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8c4a0"/><stop offset="1" stop-color="#b8906c"/></linearGradient>
+</defs>
+<circle cx="60" cy="52" r="22" fill="url(#${id}mo)" opacity=".95"/>
+<circle cx="52" cy="46" r="3" fill="${a[1]}" opacity=".18"/><circle cx="66" cy="58" r="4" fill="${a[1]}" opacity=".15"/>
+<!-- the wolf-shaped shadow on the ground -->
+<path d="M66 128L72 116L80 112L84 102L88 112L94 108L92 118L100 124L96 130Z" fill="#05060a" opacity=".85"/>
+<!-- the villager -->
+<path d="M34 134C36 116 46 108 60 108C74 108 84 116 86 134Z" fill="#3b4060" stroke="${a[0]}" stroke-width="1.2" stroke-linejoin="round"/>
+<path d="M45 88C45 77 52 71 60 71C68 71 75 77 75 88C75 99 68 106 60 106C52 106 45 99 45 88Z" fill="url(#${id}sk)"/>
+<path d="M44 84C44 74 51 68 60 68C69 68 76 74 76 82C70 78 64 77 60 79C55 77 50 78 44 84Z" fill="#4a3424"/>
+<circle cx="54.5" cy="90" r="1.7" fill="#2a1d14"/><circle cx="65.5" cy="90" r="1.7" fill="#f0b354"/>
+<path d="M55 99C58 100.5 62 100.5 65 99" stroke="#7a4a32" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+<path d="M70 74L76 64L77 76Z" fill="#4a3424" opacity=".9"/>`;
+  }
+
+  // Minion: a hooded servant holding up a lantern for the pack, a claw mark on the cloak.
+  function hoodLantern(id, a) {
+    return `
+<defs>
+  <linearGradient id="${id}cl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a3036"/><stop offset="1" stop-color="#1c1014"/></linearGradient>
+  <radialGradient id="${id}lg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe3a0" stop-opacity=".95"/><stop offset="1" stop-color="#f0b354" stop-opacity="0"/></radialGradient>
+</defs>
+<circle cx="88" cy="58" r="18" fill="url(#${id}lg)"/>
+<path d="M28 136C30 108 38 86 50 72C54 58 66 54 72 62C82 74 88 104 90 136Z" fill="url(#${id}cl)" stroke="${a[0]}" stroke-width="1.3" stroke-linejoin="round"/>
+<path d="M52 72C56 66 66 66 70 72C72 82 68 92 60 94C52 92 49 82 52 72Z" fill="#0b0608"/>
+<path d="M55 81L59 83 M68 81L64 83" stroke="${a[0]}" stroke-width="1.8" stroke-linecap="round"/>
+<path d="M44 108L50 124 M50 106L56 124 M56 106L61 122" stroke="${a[0]}" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+<path d="M74 92C80 84 84 74 86 66" stroke="#4a3036" stroke-width="5" stroke-linecap="round" fill="none"/>
+<path d="M86 50V56" stroke="#2c2f3d" stroke-width="1.4"/>
+<path d="M82 56H90L89 68H83Z" fill="#ffd27a" stroke="#2c2f3d" stroke-width="1.3" stroke-linejoin="round"/>
+<path d="M81 54H91L86 50Z" fill="#2c2f3d"/>`;
+  }
+
+  // Tanner: a hide stretched on a wooden drying frame, a scraping knife below.
+  function hideFrame(id, a) {
+    let lace = "";
+    for (let i = 0; i < 6; i++) { const y = 54 + i * 11; lace += `M33 ${y}L40 ${y + 3}M87 ${y}L80 ${y + 3}`; }
+    return `
+<defs>
+  <linearGradient id="${id}wd" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8a5a2c"/><stop offset="1" stop-color="#5a3812"/></linearGradient>
+  <radialGradient id="${id}hd" cx=".5" cy=".45" r=".6"><stop offset="0" stop-color="#e8c48e"/><stop offset="1" stop-color="${a[0]}"/></radialGradient>
+</defs>
+<path d="M32 44V128M88 44V128M26 46H94M26 120H94" stroke="url(#${id}wd)" stroke-width="5" stroke-linecap="round"/>
+<path d="M44 52C50 56 54 50 60 52C66 50 70 56 76 52C80 64 76 72 80 84C76 96 80 104 76 114C70 110 66 116 60 114C54 116 50 110 44 114C40 104 44 96 40 84C44 72 40 64 44 52Z" fill="url(#${id}hd)" stroke="${a[1]}" stroke-width="1.2" stroke-linejoin="round"/>
+<path d="${lace}" stroke="#d9c9a8" stroke-width="1" stroke-linecap="round"/>
+<path d="M52 70C56 74 64 74 68 70M54 92C58 95 62 95 66 92" stroke="${a[1]}" stroke-width="1" fill="none" opacity=".5"/>
+<path d="M44 136C54 130 66 130 76 136" stroke="#c9ced9" stroke-width="4" stroke-linecap="round" fill="none"/>
+<path d="M76 136L84 138" stroke="#5a3812" stroke-width="4" stroke-linecap="round"/>`;
+  }
+
   const EMBLEM = {
-    werewolf: { wolf: wolfHead, seer: eye, doctor: cross, bodyguard: shield, witch: potions, hunter: hunterMark, mason: masonArch, prince: crown, villager: cottage },
-    mafia: { wolf: fedora, seer: magnifier, doctor: cross, bodyguard: shield, witch: potions, hunter: hunterMark, mason: masonArch, prince: crown, villager: citizen },
+    werewolf: { wolf: wolfHead, seer: eye, doctor: cross, bodyguard: shield, witch: potions, hunter: hunterMark, mason: masonArch, prince: crown, lycan: lycanMoon, minion: hoodLantern, tanner: hideFrame, villager: cottage },
+    mafia: { wolf: fedora, seer: magnifier, doctor: cross, bodyguard: shield, witch: potions, hunter: hunterMark, mason: masonArch, prince: crown, lycan: lycanMoon, minion: hoodLantern, tanner: hideFrame, villager: citizen },
   };
 
   /* ---------- card frame ---------- */

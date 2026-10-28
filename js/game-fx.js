@@ -12,7 +12,7 @@
     village: ["#f0b354", "#f0d39a", "#6ea8fe", "#4cc38a", "#e8eaf0"],
     wolves: ["#e0605a", "#a8322c", "#f08c8c", "#f0d39a", "#e8eaf0"],
   };
-  const teamOf = (role) => (role === "wolf" ? "wolves" : "village");
+  const teamOf = (role) => (role === "wolf" || role === "minion" ? "wolves" : role === "tanner" ? "tanner" : "village");
 
   // ------------------------------------------------------------ what happened
   // ctx: { seat: your seat (null = the table phone), mineBefore, mineNow (your turn to act) }
@@ -65,7 +65,7 @@
         else if (e.t === "claim") out.push({ type: "claim" });
         else if (e.t === "end") {
           const me = seat == null ? null : g.players[seat];
-          out.push({ type: "end", winner: e.winner, result: me && me.role ? (teamOf(me.role) === e.winner ? "win" : "lose") : "win" });
+          out.push({ type: "end", winner: e.winner, result: me && me.role ? ((teamOf(me.role) === "tanner" ? g.tannerWon : teamOf(me.role) === e.winner) ? "win" : "lose") : "win" });
         }
       });
     }

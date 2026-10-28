@@ -35,7 +35,15 @@
     ];
   }
 
-  /** Rules sheet. n: { wolf, wolves, village, seer, doctor, bodyguard, witch, hunter, mason, prince, villager } in the theme's words. */
+  // Learn-more videos on YouTube (each checked with YouTube's oEmbed on 2026-10-28: id, title, channel · what it's for).
+  const VIDEOS = [
+    ["3Ez7sPnTPp0", "Learn how to play Ultimate Werewolf in 3 minutes", "Bezier Games (the publisher) · the basics"],
+    ["VDRSUgcKuf8", "How to Play &amp; Moderate Ultimate Werewolf (Rules School)", "Game Boy Geek · full rules and running a game"],
+    ["CvKH43WXhNk", "Ultimate Werewolf: Guide to Roles", "Meeple University · every role, Tanner, Minion and Lycan included"],
+    ["CU1fGfErrXA", "How to Play Mafia", "Play-In Games · the Mafia version"],
+  ];
+
+  /** Rules sheet. n: { wolf, wolves, village, seer, doctor, bodyguard, witch, hunter, mason, prince, lycan, minion, tanner, villager } in the theme's words. */
   function rules(n) {
     n = n || {};
     const w = (k, d) => n[k] || d;
@@ -45,8 +53,9 @@
         { id: "goal", short: "Goal", title: "Goal", html: "<p>Everyone gets a secret card. A few players are the <b>" + w("wolves", "Werewolves") + "</b>; the rest are the <b>" + w("village", "Village") + "</b>.</p><ul><li>The village wins when every " + w("wolf", "Werewolf") + " is gone.</li><li>The " + w("wolves", "Werewolves") + " win when they can no longer be outvoted (equal numbers), or under Millers Hollow rules when every villager is dead.</li></ul><p class=\"tip\">No moderator: the phone runs the night and the narrator reads it out.</p>" },
         { id: "night", short: "Night", title: "Night", html: "<ul><li>Everyone closes their eyes. Each role is called in turn and wakes alone.</li><li>The " + w("wolves", "Werewolves") + " wake together and pick one victim.</li><li>The " + w("seer", "Seer") + " looks at one player: " + w("wolf", "Werewolf") + " or not (Millers Hollow: the exact card).</li><li>The " + w("doctor", "Doctor") + " and " + w("bodyguard", "Bodyguard") + " guard one player from the attack.</li><li>The " + w("witch", "Witch") + " has one heal and one poison for the whole game.</li></ul><p class=\"tip\">Every role is called each night, even when dead, so the narration gives nothing away.</p>" },
         { id: "day", short: "Day", title: "Day", html: "<ul><li>Morning: the narrator says who died. Under most rules their card is shown.</li><li>The living talk, accuse and claim. Anyone may lie, including a fake " + w("seer", "Seer") + ".</li><li>Then everyone votes. Most votes goes out. A tie sends nobody out.</li></ul><p class=\"tip\">Wolf odds: the number on each seat is that player's chance of being a " + w("wolf", "Werewolf") + ", worked out exactly from what the whole table knows.</p>" },
-        { id: "roles", short: "Roles", title: "Special roles", html: "<ul><li><b>" + w("hunter", "Hunter") + "</b>: when killed, shoots one player at once.</li><li><b>" + w("mason", "Mason") + "s</b>: wake on the first night to see each other.</li><li><b>" + w("prince", "Prince") + "</b>: if voted out, the card is shown and the " + w("prince", "Prince") + " stays in.</li><li><b>" + w("villager", "Villager") + "</b>: no power, only a vote.</li></ul>" },
+        { id: "roles", short: "Roles", title: "Special roles", html: "<ul><li><b>" + w("hunter", "Hunter") + "</b>: when killed, shoots one player at once.</li><li><b>" + w("mason", "Mason") + "s</b>: wake on the first night to see each other.</li><li><b>" + w("prince", "Prince") + "</b>: if voted out, the card is shown and the " + w("prince", "Prince") + " stays in.</li><li><b>" + w("lycan", "Lycan") + "</b>: on the village's side, but the " + w("seer", "Seer") + " sees a " + w("wolf", "Werewolf") + ".</li><li><b>" + w("minion", "Minion") + "</b>: plays for the " + w("wolves", "Werewolves") + " and knows them; they don't know the " + w("minion", "Minion") + ". The " + w("seer", "Seer") + " sees a " + w("villager", "Villager") + ".</li><li><b>" + w("tanner", "Tanner") + "</b>: wins if they die, by any cause; the game goes on.</li><li><b>" + w("villager", "Villager") + "</b>: no power, only a vote.</li></ul><p class=\"tip\">" + w("lycan", "Lycan") + ", " + w("minion", "Minion") + " and " + w("tanner", "Tanner") + " are off unless you add them in a Custom setup.</p>" },
         { id: "sets", short: "Rule sets", title: "Rule sets (Settings)", html: "<ul><li><b>Ultimate Werewolf</b>: the first night the wolves only meet; the Seer learns wolf or not; wolves win at equal numbers.</li><li><b>Millers Hollow</b>: wolves kill on night one; the Seer sees the exact card; wolves win when every villager is dead.</li><li><b>Mafia</b>: opens with a day; the Detective learns Mafia or not.</li></ul><p class=\"tip\">Every rule is also a switch of its own in Settings.</p>" },
+        { id: "videos", short: "Videos", title: "Videos", html: "<ul class=\"ww-videos\">" + VIDEOS.map((v) => '<li><a href="https://www.youtube.com/watch?v=' + v[0] + '" target="_blank" rel="noopener">' + v[1] + "</a><br><small>" + v[2] + "</small></li>").join("") + "</ul><p class=\"tip\">Opens YouTube in a new tab.</p>" },
       ],
     };
   }

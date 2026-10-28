@@ -14,7 +14,7 @@
   function cut14(v) { let s = String(v).slice(0, 14); const c = s.charCodeAt(s.length - 1); if (c >= 0xd800 && c <= 0xdbff) s = s.slice(0, -1); return s; }
   // ------------------------------------------------------------ storage
   const DEFAULT_STORE = {
-    settings: { theme: "werewolf", ruleset: "ultimate", opts: Object.assign({}, W.RULESETS.ultimate.opts), voice: true, rate: "normal", level: "normal", timer: 0 },
+    settings: { theme: "werewolf", ruleset: "ultimate", opts: Object.assign({}, W.RULESETS.ultimate.opts), voice: true, rate: "normal", level: "normal", pace: "normal", timer: 0 },
     names: [], count: 8, cpuCount: 8, onCount: 6, choice: {}, custom: {}, game: null, undo: [], cpu: null, online: null,
     // vs computer: Undo snapshots and what the game counts as in My stats (helped / daily / guided / recorded / moved)
     cpuUndo: [], cpuMeta: null,
@@ -38,6 +38,7 @@
     out.settings.ruleset = pick(st.ruleset, Object.keys(W.RULESETS).concat("custom"), D.settings.ruleset);
     out.settings.rate = pick(st.rate, ["slow", "normal", "fast"], D.settings.rate);
     out.settings.level = pick(st.level, ["easy", "normal", "smart"], D.settings.level);
+    out.settings.pace = pick(st.pace, ["slow", "normal", "fast"], D.settings.pace);
     out.settings.timer = pick(st.timer, [0, 2, 3, 5], 0);
     out.settings.voice = st.voice !== false;
     const o = Object.assign({}, W.DEFAULT_OPTS);
@@ -104,7 +105,7 @@
   function balColor(p) { const d = Math.min(1, Math.abs(p - 0.5) / 0.2); return "hsl(" + Math.round(130 * (1 - d)) + ",65%,58%)"; }
   // wolf odds: green (safe) -> red (likely wolf)
   function wolfColor(p) { const d = Math.min(1, p / 0.6); return "hsl(" + Math.round(130 * (1 - d)) + ",65%,58%)"; }
-  const team = (r) => (r === "wolf" ? "wolf" : "village");
+  const team = (r) => (r === "wolf" || r === "minion" ? "wolf" : r === "tanner" ? "tanner" : "village");
 
   const IC = {
     back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
@@ -131,6 +132,9 @@
     hunter: '<circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1v4M8 11v4M1 8h4M11 8h4" stroke="currentColor" stroke-width="1.6"/>',
     mason: '<path d="M2 13h12v1.5H2zM3 9h4v3H3zM9 9h4v3H9zM6 5h4v3H6z" fill="currentColor"/>',
     prince: '<path d="M2 12l1-7 3 3 2-5 2 5 3-3 1 7z" fill="currentColor"/>',
+    lycan: '<circle cx="8" cy="5" r="3.5" fill="currentColor"/><path d="M3 15c0-3 2-5 5-5s5 2 5 5z" fill="currentColor" opacity=".7"/>',
+    minion: '<path d="M8 1.5c3 0 5 4 5.5 13h-11C3 5.5 5 1.5 8 1.5z" fill="currentColor"/><path d="M6 7l1.2.6M10 7l-1.2.6" stroke="#000" stroke-width="1.2"/>',
+    tanner: '<path d="M3 2h10M3 14h10M4 2v12M12 2v12" stroke="currentColor" stroke-width="1.4"/><path d="M6 4h4l-.6 4 .6 4H6l.6-4z" fill="currentColor"/>',
     villager: '<path d="M2 8l6-5 6 5v6H2z" fill="currentColor"/>',
   };
   const glyph = (r) => '<span class="ri ' + team(r) + '"><svg viewBox="0 0 16 16">' + GLYPH[r] + "</svg></span>";
@@ -419,6 +423,11 @@
   }
   // A Mason at a seat game (vs computer, online) learns the other Masons with their card.
   function masonLine(g, p) {
+    if (p.role === "minion" && g.mode === "seats") {
+      const w = g.players.filter((x) => x.role === "wolf").map((x) => esc(x.name));
+      return "<br><b>" + esc(TH().wolves) + ": " + w.join(", ") + "</b>";
+    }
+    if (p.role === "minion") return "<br><b>On the first night you open your eyes and see them.</b>";
     if (p.role !== "mason" || g.mode !== "seats") return "";
     const o = g.players.filter((x) => x.role === "mason" && x.id !== p.id).map((x) => esc(x.name));
     return "<br><b>" + (o.length ? "Other " + esc(RN("mason", o.length > 1)) + ": " + o.join(", ") : "You are the only " + esc(RN("mason")) + ".") + "</b>";
@@ -430,7 +439,7 @@
     if (role === "doctor") h += o.doctorSelf ? " You may pick yourself." : " Not yourself.";
     if ((role === "doctor" || role === "bodyguard") && !o.guardRepeat) h += " Never the same player two nights running.";
     if (role === "wolf" && !o.firstNightKill) h += " The first night you only meet.";
-    return h.replace(/wolves/g, TH().wolves.toLowerCase() === "mafia" ? "Mafia" : "wolves").replace(/a wolf/g, T() === "mafia" ? "Mafia" : "a wolf");
+    return h.replace(/wolves/g, TH().wolves.toLowerCase() === "mafia" ? "Mafia" : "wolves").replace(/a wolf/g, T() === "mafia" ? "Mafia" : "a wolf").replace(/Seer/g, RN("seer")).replace(/a villager/g, "a " + RN("villager").toLowerCase());
   }
   function renderReady(g) {
     const first = g.opts.dayFirst ? "day" : "night";
@@ -713,7 +722,9 @@
       if (step === "doctor" || step === "bodyguard") return R + ", open your eyes. Choose someone to protect.";
       if (step === "witch") return R + ", open your eyes. Here is tonight's victim.";
       if (step === "mason") return R + ", open your eyes and see each other.";
+      if (step === "minion") return R + ", open your eyes. " + RN("wolf", true) + ", raise your thumbs so the " + R + " can see you.";
     }
+    if (step === "minion") return RN("wolf", true) + ", thumbs down. " + R + ", close your eyes.";
     return R + ", close your eyes.";
   }
   function nightKey(g) { return g.nightNo + ":" + g.night.i; }
@@ -827,6 +838,7 @@
     const list = names.length === 1 ? names[0] : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
     lines.push(how === "night" ? "Last night, " + list + (ids.length === 1 ? (isYou(g, ids[0]) ? " were killed." : " was killed.") : " died.") : list + (ids.length === 1 && isYou(g, ids[0]) ? " have been voted out." : " has been voted out."));
     ids.forEach((id) => { const p = g.players[id]; if (p.revealed) lines.push(p.name + was(g, id) + aRole(p.role) + "."); });
+    ids.forEach((id) => { const p = g.players[id]; if (p.revealed && p.role === "tanner") lines.push((isYou(g, id) ? "You get" : p.name + " gets") + " their wish: the " + RN("tanner") + " wins. The game goes on."); });
     return lines;
   }
   const sparedLines = (g, id) => [g.players[id].name + was(g, id) + "voted out, but " + (isYou(g, id) ? "you are" : "is") + " the " + RN("prince") + ".", (isYou(g, id) ? "You stay" : g.players[id].name + " stays") + " in the game."];
@@ -941,8 +953,8 @@
         const el = document.getElementById("timerTxt"); if (el) el.textContent = fmtTime(t.left);
         if (t.left > 0 && t.left <= 10) sfx("tick");
         if (t.left === 0) sfx("alarm");
-        if (t.left === 60 && !t.warned) { t.warned = true; window.Narrator.play([{ say: "One minute left." }], { voice: S.settings.voice }); }
-        if (t.left <= 0) { clearInterval(timerInt); t.running = false; window.Narrator.play([{ say: "Time is up. Time to vote." }], { voice: S.settings.voice }); render(); }
+        if (t.left === 60 && !t.warned) { t.warned = true; window.Narrator.play([{ say: "One minute left." }], { voice: S.settings.voice, rate: RATE() }); }
+        if (t.left <= 0) { clearInterval(timerInt); t.running = false; window.Narrator.play([{ say: "Time is up. Time to vote." }], { voice: S.settings.voice, rate: RATE() }); render(); }
       }, 1000);
     }
     render();
@@ -967,8 +979,9 @@
       return c ? "Check " + c.name + ": " + pct(od[c.id] || 0) + " wolf — the least certain player." : "Nobody left to check.";
     }
     const me = g.players[ms];
-    if (me.role === "wolf") {
-      // A wolf already knows the truth: show what the rest of the table believes.
+    if (me.role === "tanner" && g.phase === "day") return "You win if you die. Look guilty: a false " + RN("seer") + " claim draws the votes.";
+    if (me.role === "wolf" || me.role === "minion") {
+      // A wolf (or their Minion) already knows the truth: show what the rest of the table believes.
       const pub = W.wolfOdds(W.oddsInfo(g, null)).odds;
       const prey = others.filter((p) => p.role !== "wolf").sort((a, b) => (pub[b.id] || 0) - (pub[a.id] || 0));
       if (!prey.length) return "No one to vote for.";
@@ -1072,7 +1085,11 @@
   function renderOver(g) {
     const win = g.winner;
     // Every card round the table is turned face up, like the end of a real game.
-    const center = '<div class="over-head ' + win + '">' + (win === "village" ? IC.sun.replace('class="sun"', 'width="56" height="56"') : moonArt()) + "<h2>" + esc(win === "village" ? TH().village : TH().wolves) + ' win</h2><p class="muted">' + (SEATED() ? (W.TEAM[g.players[ME()].role] === (win === "village" ? "village" : "wolves") ? "You won." : "You lost.") : "Day " + Math.max(1, g.day)) + "</p></div>" +
+    const myRole = SEATED() ? g.players[ME()].role : null;
+    const iWon = myRole && (W.TEAM[myRole] === "tanner" ? !!g.tannerWon : W.TEAM[myRole] === (win === "village" ? "village" : "wolves"));
+    const tan = g.players.find((p) => p.role === "tanner");
+    const tanLine = tan ? '<p class="muted" style="margin:2px 0 0">' + esc(tan.name) + ", the " + esc(RN("tanner")) + ", " + (g.tannerWon ? "died and also won." : "lived and lost.") + "</p>" : "";
+    const center = '<div class="over-head ' + win + '">' + (win === "village" ? IC.sun.replace('class="sun"', 'width="56" height="56"') : moonArt()) + "<h2>" + esc(win === "village" ? TH().village : TH().wolves) + ' win</h2><p class="muted">' + (SEATED() ? (iWon ? "You won." : "You lost.") : "Day " + Math.max(1, g.day)) + "</p>" + tanLine + "</div>" +
       (SEATED() ? voteRecord(g) : "");
     const foot = '<button class="btn" data-act="home">Menu</button>' + (ui.mode === "online" ? '<button class="btn primary" data-act="leaveRoom">Leave room</button>' : '<button class="btn primary" data-act="again">Play again</button>');
     const main = playScreen(ring(g, [], { allUp: true, me: SEATED() ? ME() : undefined, sub: (p) => esc(RN(p.role)) + (p.alive || g.players.length > 12 ? "" : " · dead") }, center), "", foot, "over");
@@ -1134,6 +1151,9 @@
 
   // ------------------------------------------------------------ cpu driver
   let pumpTimer = null;
+  // Settings → Computers → Speed: how long the computers "think" before each move.
+  const PACE = () => ({ slow: 1.8, normal: 1, fast: 0.45 }[S.settings.pace] || 1);
+  const RATE = () => ({ slow: 0.8, normal: 0.92, fast: 1.08 }[S.settings.rate] || 0.92);
   function pump() {
     clearTimeout(pumpTimer);
     const my = ui.gen;
@@ -1145,7 +1165,7 @@
     const pend = W.pendingActors(g);
     const bots = pend.filter(isBot);
     if (bots.length) {
-      const delay = FAST * (g.phase === "night" ? 700 + Math.random() * 900 : g.phase === "day" ? 450 + Math.random() * 500 : 1200);
+      const delay = FAST * PACE() * (g.phase === "night" ? 700 + Math.random() * 900 : g.phase === "day" ? 450 + Math.random() * 500 : 1200);
       pumpTimer = setTimeout(() => {
         if (my !== ui.gen) return;
         const a = W.nextBotMove(S.cpu, bots, Math.random, isBot);
@@ -1159,7 +1179,7 @@
     const h = W.hostAction(g);
     if (!h) { render(); return; }
     if (h.type === "night") { render(); return; } // you tap "Start night"
-    const wait = FAST * (h.type === "done" ? 1500 + Math.random() * 1500 : h.type === "day" ? 400 : 600);
+    const wait = FAST * PACE() * (h.type === "done" ? 1500 + Math.random() * 1500 : h.type === "day" ? 400 : 600);
     pumpTimer = setTimeout(() => { if (my === ui.gen) { hostStep(); pump(); } }, wait);
   }
   function hostStep() {
@@ -1186,7 +1206,7 @@
       const hl = hunterLine(g); if (hl) lines.push(hl);
       if (g.winner) lines.push(winLine(g));
       else if (g.phase === "night" && ui.mode === "online") lines.push("Night falls. Everyone, close your eyes.");
-      window.Narrator.play(lines.map((s) => ({ say: s })), { voice: S.settings.voice, scale: FAST });
+      window.Narrator.play(lines.map((s) => ({ say: s })), { voice: S.settings.voice, scale: FAST, rate: RATE() });
     }
   }
   // One move from the seat you hold.
@@ -1246,9 +1266,17 @@
     const rows = ns.map((n) => "<tr><td>" + n + "</td>" + names.map((nmz) => { const s = (data[n] || []).find((d) => d.name === nmz); return s ? '<td style="color:' + balColor(s.village) + '">' + pct(s.village) + '<br><span class="muted" style="font-size:11px">' + s.setup.wolf + "w · UW " + fmtPts(W.uwPoints(s.setup)) + "</span></td>" : '<td class="muted">—</td>'; }).join("") + "</tr>").join("");
     const page = '<div class="page"><h2>Village win chance ' + q("balance") + '</h2><p class="muted" style="margin-top:0">' + esc(W.RULESETS[rs].name) + " rules · normal computers on both sides</p>" + svg + legend +
       '<h2>Every setup</h2><div class="scroll" style="overflow-x:auto"><table class="tbl"><thead><tr><th>Players</th>' + names.map((n) => "<th>" + n + "</th>").join("") + "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
-      '<h2>How strong are the computers?</h2>' + bots +
+      '<h2>How strong are the computers?</h2>' + bots + extraRoles() +
       '<h2>Simulation vs the point system ' + q("uw") + '</h2><p class="muted">Each setup above also shows its Ultimate Werewolf point total (UW). Zero is meant to be fair. Compare it with the measured win chance.</p></div>';
     return topbar("Setup lab", "", backBtn("home"), gearBtn) + '<div class="main"><div class="pane"><div class="pad scroll" style="flex:1">' + page + "</div></div></div>";
+  }
+  // What one extra role does to the 8-player game (tools/measure-roles.js → js/roles-data.js).
+  function extraRoles() {
+    const R = window.WW_ROLES;
+    if (!R || !R.rows) return "";
+    const rows = R.rows.map((r) => "<tr><td>" + (r.add ? '<span class="chip ' + team(r.add) + '">' + glyph(r.add) + esc(RN(r.add)) + "</span>" : "None (base)") + '</td><td style="color:' + balColor(r.village) + '">' + pct(r.village) + "</td><td>" + (r.tanner != null ? pct(r.tanner) : "—") + "</td><td>" + fmtPts(r.uw) + "</td></tr>").join("");
+    return "<h2>What one extra role does</h2>" + '<table class="tbl"><thead><tr><th>Swapped in</th><th>Village wins</th><th>' + esc(RN("tanner")) + " wins</th><th>UW</th></tr></thead><tbody>" + rows + "</tbody></table>" +
+      '<p class="muted" style="font-size:13px">8 players: 2 ' + esc(RN("wolf", true).toLowerCase()) + ", " + esc(RN("seer")) + ", " + esc(RN("doctor")) + " and villagers, one villager swapped for the role · Ultimate rules · Normal computers · " + (R.rows[0].games || 0).toLocaleString() + " games each. The " + esc(RN("tanner")) + " wins on top of the team that wins.</p>";
   }
   function renderRules() {
     const th = TH();
@@ -1257,7 +1285,7 @@
       "<p>The " + esc(th.village) + " wins when every " + esc(RN("wolf")) + " is gone. The " + esc(th.wolves) + " win when they can no longer be outvoted (equal numbers), or under Millers Hollow rules, when everyone else is dead.</p>" +
       '<h2>Roles</h2><div style="display:grid;gap:10px">' + roles + "</div>" +
       "<h2>Rule sets</h2><ul><li><b>Ultimate Werewolf</b> — first night the wolves only meet; the Seer learns wolf or not; wolves win at equal numbers.</li><li><b>Millers Hollow</b> — wolves kill on night one; the Seer sees the exact card; wolves win when every villager is dead.</li><li><b>Mafia</b> — opens with a day; the Detective learns Mafia or not; Mafia win at equal numbers.</li></ul><p class=\"muted\">Every rule is a switch in Settings. A tied vote sends nobody out in all three.</p>" +
-      "<h2>Night order</h2><p>" + W.NIGHT_ORDER.map((r) => esc(RN(r, r === "wolf"))).join(" → ") + ". Every role in the game is called each night, even when dead, so the narration never gives anything away. " + esc(RN("mason", true)) + " wake only on the first night, just to see each other.</p>" +
+      "<h2>Night order</h2><p>" + W.NIGHT_ORDER.map((r) => esc(RN(r, r === "wolf"))).join(" → ") + ". Every role in the game is called each night, even when dead, so the narration never gives anything away. " + esc(RN("mason", true)) + " wake only on the first night, just to see each other; the " + esc(RN("minion")) + " wakes only then too, to see the " + esc(TH().wolves) + ".</p>" +
       '<h2>Sources</h2><p class="muted">Rules checked against the Millers Hollow rulebook, Ultimate Werewolf rule summaries, and the Mafia article on Wikipedia. Details in the project\'s docs/rules-check.md.</p></div>';
     return topbar("Rules", RS_NAME(), backBtn("home"), gearBtn) + '<div class="main"><div class="pane"><div class="pad scroll" style="flex:1">' + page + "</div></div></div>";
   }
@@ -1286,7 +1314,8 @@
       '<div class="set-group"><p class="label">Narrator</p><div class="set-row"><span class="sl">Voice</span><label class="switch"><input type="checkbox" data-set="voice" ' + (s.voice ? "checked" : "") + '><span></span></label></div><div class="set-row"><span class="sl">Speed</span>' + seg("rate", [["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]], s.rate) + "</div>" +
       '<div class="set-row"><span class="sl">Day timer</span>' + seg("timer", [["0", "Off"], ["2", "2 min"], ["3", "3 min"], ["5", "5 min"]], s.timer) + "</div></div>" +
       (FX ? '<div class="set-group"><p class="label">Sound &amp; effects</p><div id="fxSet"></div></div>' : "") +
-      '<div class="set-group"><p class="label">Computers</p><div class="set-row"><span class="sl">Level ' + q("bots") + "</span>" + seg("level", [["easy", "Easy"], ["normal", "Normal"], ["smart", "Smart"]], s.level) + "</div></div>" +
+      '<div class="set-group"><p class="label">Computers</p><div class="set-row"><span class="sl">Level ' + q("bots") + "</span>" + seg("level", [["easy", "Easy"], ["normal", "Normal"], ["smart", "Smart"]], s.level) + "</div>" +
+        '<div class="set-row"><span class="sl">Speed</span>' + seg("pace", [["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]], s.pace) + "</div></div>" +
       '<div class="set-group"><p class="label">Rules <span class="grow"></span><span style="text-transform:none;letter-spacing:0">new games</span></p>' +
       '<div class="seg" style="width:100%;display:flex">' + [["ultimate", "Ultimate"], ["millers", "Millers H."], ["mafia", "Mafia"], ["custom", "Custom"]].map(([v, l]) => '<button style="flex:1" data-act="seg" data-name="ruleset" data-v="' + v + '" class="' + (preset === v ? "sel" : "") + '">' + l + "</button>").join("") + "</div>" +
       sw("firstNightKill", "Wolves kill on night 1") + sw("dayFirst", "Open with a day") + sw("reveal", "Show cards of the dead") +
@@ -1577,7 +1606,7 @@
       }
       // --- cpu
       case "cpuBegin": if (ui.mode === "online") { closeSheet(); window.Narrator.unlock(); render(); return; }
-        closeSheet(); window.Narrator.unlock(); applyCpu({ type: "start" }); if (S.cpu.phase === "night") window.Narrator.play([{ say: "Night falls. Everyone, close your eyes." }], { voice: S.settings.voice, scale: FAST }); pump(); return;
+        closeSheet(); window.Narrator.unlock(); applyCpu({ type: "start" }); if (S.cpu.phase === "night") window.Narrator.play([{ say: "Night falls. Everyone, close your eyes." }], { voice: S.settings.voice, scale: FAST, rate: RATE() }); pump(); return;
       case "cpuPick": seatAct({ type: "pick", step: W.currentStep(G()), target: ui.sel }); return;
       case "cpuDone": seatAct({ type: "done", step: W.currentStep(G()) }); return;
       case "cpuHeal": seatAct({ type: "pick", step: "witch", extra: "heal", target: el.dataset.v === "1" }); return;
@@ -1597,7 +1626,7 @@
       case "leaveRoom": leaveRoom(); return;
       case "seg": {
         const name = el.dataset.name, v = el.dataset.v;
-        if (name === "theme" || name === "rate" || name === "level") S.settings[name] = v;
+        if (name === "theme" || name === "rate" || name === "level" || name === "pace") S.settings[name] = v;
         else if (name === "timer") { S.settings.timer = +v; ui.timer = null; }
         else if (name === "ruleset") { S.settings.ruleset = v; if (W.RULESETS[v]) S.settings.opts = Object.assign({}, W.RULESETS[v].opts); if (v === "mafia") S.settings.theme = "mafia"; }
         else { S.settings.opts[name] = v; syncRuleset(); }
@@ -1700,7 +1729,7 @@
     if (room) return Promise.resolve(room);
     if (roomLoading) return roomLoading;
     roomLoading = import("./online.js?v=a3d0418b").then((mod) => {
-      room = mod.createOnline({ game: window.WWOnline.game, gameId: "werewolf", botDelayMs: Math.round(900 * Math.max(FAST, 0.2)) });
+      room = mod.createOnline({ game: window.WWOnline.game, gameId: "werewolf", botDelayMs: Math.round(900 * PACE() * Math.max(FAST, 0.2)) });
       room.on("change", onSnap);
       room.on("error", (m) => { if (m) toast(m); });
       return room;
