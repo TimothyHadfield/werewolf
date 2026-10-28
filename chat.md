@@ -1,5 +1,11 @@
 # Werewolf / Mafia — session log
 
+## 2026-10-28 — wave 3 (builder agent, from the manager's brief)
+- **Asked** (Tim via manager): "go through each project adding features or changing things that you think should be changed … links to youtube videos on strategies/how to play/variations … adding variations … making the layout better on iphone … Just make the games better."
+- **Built**: Lycan, Minion, Tanner (engine, odds, bots, art emblems, narration, hints, game-over lines, stats); `tests/roles3.test.js` (15); `tools/measure-roles.js` + `js/roles-data.js` + Setup lab table; Rules sheet Videos tab (4 oEmbed-checked videos); Settings → Computers → Speed; narrator rate on every line; phone home scrolls (no clipped moon at 320×568); laptop Deal button under the role list.
+- **Verified**: roles3 failed on the old engine, passes now; `node tests/run.js` 72 passed; bots view test caught a Tanner peeking (fixed); ladder with all three roles Smart>Normal 61%, Normal>Easy 79%; headless WebKit shots at 393, 320×568, 659×393, 1280, 1440 with no overflow or console errors (`wt/ww3-scratch/after/`).
+- **Open**: see NOT verified (no full UI game holding a Minion/Tanner card; real iPhone).
+
 ## 2026-10-27 — improve pass (builder agent, from the manager's per-game brief)
 - **Asked** (manager): Hard must beat Medium ≥ 65%; standard variants; rival's best features; Undo vs computer; shared kits `_coach`, `_profile` (stats, achievements, Daily), `_pwa` 1.2.0, `_fx`; bigger key-moment animation; avatars on plates; more Ultimate roles; two-column laptop home; table preview in the phone setup's empty lower third.
 - **Built**: Smart re-tune + Mason/Prince (commit 945e8a4); kits copied unchanged + `js/wwcoach.js`, `js/wwprofile.js`; Undo, Daily, guided first game, My stats pill, Settings → Learn, name-hashed plate avatars, setup table preview, laptop card fan, `spotlight()` card zoom in game-fx.js.

@@ -42,6 +42,9 @@ Werewolf has no single official rulebook. The app follows three published versio
 | Hunter | When killed (night or vote), shoots one player right away; may fire into the air. The game isn't decided until the shot. | MH PDF, BGA, UW summary | checked |
 | Mason (added 10-27) | The Masons wake on the first night and see each other; no other power. In seat games (vs computer, online) each Mason's card names the others. Custom setups only, 0–3. | [UW rulebook](https://rulespal.com/ultimate-werewolf/rulebook) (Mason, +2 points) | checked (1 source) |
 | Prince (added 10-27) | If voted out, the card is shown and the Prince stays in the game (every time: the card says "you are not eliminated"). Wolves can still kill the Prince at night. Custom setups only. | UW rulebook (Prince, +3 points) | checked (1 source). **App reading:** the power works on every vote, not only the first |
+| Lycan (added 10-28) | A villager who shows up as a wolf to the Seer (role-style Seer sees "Werewolf"). Village team, −1 point. The wolf odds sum over every seat the Lycan could be in, so a Seer "wolf" result is no longer certain. Custom setups only. | [UW rulebook](https://rulespal.com/ultimate-werewolf/rulebook) + board-game-rules.com UE summary | checked (2 sources) |
+| Minion (added 10-28) | Wolf team. On the first night opens their eyes and sees the wolves (the wolves don't see the Minion); shows up as not a wolf (role-style: "Villager"). Counts as a non-wolf for parity. Wolves win → Minion wins. −6 points. Custom setups only. | UW rulebook + UE summary | checked (2 sources). **App reading:** parity counts the Minion as an "other" (the rulebook only says the Minion is on the wolf team) |
+| Tanner (added 10-28) | Own team. Wins if they die (voted out, killed at night, or shot). The game goes on and the other teams' win conditions don't change, so the Tanner wins on top of whoever wins. +1 point. Custom setups only. | UW Ultimate Edition rulebook: "If they die, they win. The other teams' victory conditions remain unchanged." | checked. **Not built:** the older reading where a Tanner's death ends the game |
 | Villager | No power. | all | checked |
 
 ## Numbers
@@ -51,11 +54,12 @@ Werewolf has no single official rulebook. The app follows three published versio
 | MH wolves by players | 8–11: 2 · 12–17: 3 · 18: 4 | MH rulebook PDF | checked (test asserts) |
 | UW first game wolves | 6–8: 1 · 9–11: 2 · 12–15: 3 | UW rulebook | checked (test asserts) |
 | Mafia wolves | about a third | Davidoff via Wikipedia | checked. (The "one quarter" habit has no source.) |
-| UW points | Werewolf −6, Seer +7, Bodyguard +3, Witch +4, Hunter +3, Villager +1 | board-game-rules.com + [BGG thread](https://boardgamegeek.com/thread/879524/ultimate-werewolf-role-values) | checked (2 sources). Doctor +3 comes from the German "Werwölfe" Healer card, a different publisher; that rulebook also gives the Witch +5 |
+| UW points | Werewolf −6, Seer +7, Bodyguard +3, Witch +4, Hunter +3, Villager +1, Lycan −1, Minion −6, Tanner +1 | board-game-rules.com + [BGG thread](https://boardgamegeek.com/thread/879524/ultimate-werewolf-role-values) | checked (2 sources). Doctor +3 comes from the German "Werwölfe" Healer card, a different publisher; that rulebook also gives the Witch +5 |
 
 ## Not built (variants found but left out)
 - Millers Hollow **Sheriff** (elected, vote counts double, names a successor). Its tie rules are fan house rules.
 - UW tie variants **Secret Ballot** (all tied players die) and **German Style** (revote between tied players).
 - UW "reveal team only" and "reveal wolf/villager only".
-- Extra roles: Cupid/Lovers, Thief, Little Girl, Lycan, Minion, Tanner, Apprentice Seer, Priest, Scapegoat. (Mason and Prince were added 10-27: neither needs a new kind of night action or changes the wolf-odds maths. Lycan and Minion would change what a Seer result means, so the exact odds would need a rewrite.)
+- Extra roles: Cupid/Lovers, Thief, Little Girl, Apprentice Seer, Priest, Scapegoat. (Mason and Prince were added 10-27; Lycan, Minion and Tanner on 10-28, with the odds maths extended for the Lycan.)
+- Tanner "a Tanner's death ends the game and only the Tanner wins" (older/Whitebox reading). The app uses the Ultimate Edition reading: the game goes on.
 - Witch "stops seeing the victim after using a power" (UW).

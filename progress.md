@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → `CLAUDE.md` → `docs/rules-check.md` → `docs/ideas.md` → `chat.md` (latest entry).
-Last updated: 2026-10-27, by the improve-pass builder agent (kits, Undo, Daily, layout).
+Last updated: 2026-10-28, by the wave-3 builder (Lycan/Minion/Tanner, videos, computer speed, home + laptop layout fixes).
 
 ## Goal right now
 A no-moderator Werewolf / Mafia companion on Tim's iPhone. It covers:
@@ -31,6 +31,7 @@ The study layers are measured setup balance, live wolf odds, and computers at th
 | Edge pass (10-20) | Done. 46 weird scenarios tested (table below), 14 failures fixed. Tests `tests/edge.test.js` (9). |
 | Visibility pass (10-27) | Done. Cards grow to fill the table (largest size with no seat touching another or poking off the table); names ≥ 10 px, odds ≥ 12 px everywhere; landscape phone puts the stat line and buttons in a right column so the table gets the full height. Card width, 20 players: 1280 px 40 → 52, 393 px 22 → 24, 320 px 20 → 18 (text up from 9 px, 2 overlaps gone); 8 players at 1280: 64 → 100. Check: `tools/qa/layout-check.mjs <url> [webkit/chromium]` (needs a local server). |
 | Improve pass (10-27) | Done. Smart computers re-tuned (Smart vs Normal 59% → 81%), Mason + Prince roles. Shared kits copied unchanged: `_coach` (guided first game `js/wwcoach.js`, rules sheet in Settings → Learn), `_profile` (My stats pill on home, achievements, Daily game `js/wwprofile.js`), `_pwa` 1.2.0 (manifest, `sw.js`, icons), `_fx` re-copied. Undo vs computer (top bar; not in the Daily). Avatars on table plates (name-hashed). Laptop home is two columns (menu + card fan); phone setup fills the empty lower part with a live table preview + Daily item. Revealed dead card zooms to the centre on phones (`spotlight()` in game-fx; off with reduced motion / FX off). Tests 57/57, `tools/pwa-check.mjs` 18/18. |
+| Wave 3 (10-28) | Done. **Lycan, Minion, Tanner** (Ultimate base roles, off unless added in Custom; sourced in rules-check). Wolf odds stay exact with a Lycan (summed over its seat). Computers: Minion and Tanner fake-claim Seer at Normal/Smart, a Smart Minion counter-claims. Setup lab gains a "What one extra role does" table (`tools/measure-roles.js` → `js/roles-data.js`). Rules sheet gains a **Videos** tab (4 videos below). Settings → Computers → **Speed** (slow/normal/fast, default normal). Narrator speed now also applies to timer and announcement lines. Home on phones scrolls instead of clipping the moon/Rules at 320×568; laptop Deal button sits right under the role list. Tests 72/72 (new `tests/roles3.test.js`, 15). |
 
 ## Edge pass scenarios (2026-10-20)
 Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager session). Headless WebKit iPhone 393x659 unless noted.
@@ -54,6 +55,9 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 
 - Setups (Ultimate, 8 players, village win): Simple 47.6%, Classic 55.8%, Full 43.3%, Rulebook 66.6%.
 - Head to head (fair share, both sides, 3 setups × 1,000 games, 10-27): Normal vs Easy 76.7%, Smart vs Normal 80.8% (was 59.2%). My stats ratings from these: Easy 1200, Normal 1410, Smart 1660.
+- One extra role swapped for a villager (8 players, Ultimate, Normal computers, 4,000 games each, 10-28): base 47.3% village · Lycan 46.9% · Minion 38.3% · Tanner 47.4% (Tanner wins 64.4%) · Prince 52.4% · Hunter 55.0%.
+- Ladder with Lycan + Minion + Tanner in the setup (600 games each way, 10-28): Smart vs Normal ≈ 61%, Normal vs Easy ≈ 79%. Smart Minion beats Easy Minion and Smart Tanner beats Easy Tanner (tests).
+- Videos in the Rules sheet (checked via YouTube oEmbed 10-28): `3Ez7sPnTPp0` "Learn how to play Ultimate Werewolf Deluxe Edition in just 3 minutes!" (Bezier Games) · `VDRSUgcKuf8` "How to Play & Moderate Ultimate Werewolf (Rules School)" (Game Boy Geek) · `CvKH43WXhNk` "Ultimate Werewolf Deluxe Edition – Guide to Roles" (Meeple University) · `CU1fGfErrXA` "How to Play MAFIA" (Play-In Games).
 
 ## Standing instructions (Tim's words, via the manager)
 - "Voice narrator, role setups, each player's chance of being a wolf" — a real-table companion, no human moderator.
@@ -122,6 +126,7 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 - Edge pass (builder's picks, Tim may change): Hint is the first button in the day footer; "Nobody can be protected tonight." wording; last wolf and last villager dying the same night = village wins (no rulebook covers it); crowded small screens get smaller cards automatically; the "Your card" × closes it; "This game moved on in another tab." toast.
 - Visibility pass (builder's picks, Tim may change): landscape phone puts the stat line and buttons in a 176 px right column (four buttons two by two); the middle of the table may shrink to half the table's width so cards can grow; 320 px with 20 players keeps 18 px cards to hold 10 px names (was 20 px cards with 9 px names).
 - Improve pass (builder's picks, Tim may change): Prince is protected from every vote-out (not only the first); Mason/Prince keep their names in the Mafia theme; avatars are picked from your name (no picker); laptop home card fan; Daily = 8 players, 2 wolves + Seer + Doctor + Hunter + 3 villagers vs Normal, wording "Same deal for everyone today"; tutorial wording; Normal left beatable on purpose so the balance numbers stay valid.
+- Wave 3 (builder's picks, Tim may change): Tanner uses the Ultimate Edition reading (wins on death, game goes on) not the "game ends" reading; Minion counts as a non-wolf for parity; Lycan/Minion/Tanner keep their names in the Mafia theme; computer Speed is Slow 1.8× / Normal / Fast 0.45× of the delays; no narrator volume (iOS Safari ignores speech volume); the lab's extra-roles table uses the existing role chips.
 - Table look (builder's picks, Tim may change): dark wood in both themes; a top-down view (cards upright, not rotated to face each seat) for readability; rounded-rectangle seating; deck top-left on the deal screen; 13+ players at game over show the role without "· dead" (the struck-through plate shows it).
 
 ## NOT verified
@@ -138,7 +143,9 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 
 - Visibility pass: not on a real iPhone; online two-browser not re-run (seat screens share `ring()`, checked through vs computer). At 320 px with 20 players short names are still cut ("Ros…") and cards are 18 px; the corner seats are what clash first. No pinch zoom was added. Landscape side column has empty space between the stat lines and the buttons. Once (1 of 4 capture runs, 1280 px, game over → Home) headless WebKit left the app to the previous page (`__ww` gone): looks like the Back/history code going one step too far; not reproduced, not checked on the old build, not touched by this pass.
 
-- Improve pass: Add to Home Screen / offline on a real iPhone; pwa-check was not first run against the unfixed build. At 320×568 the home moon is clipped at the top, and on laptop the roles column keeps an empty band under Custom (both from before this pass).
+- Improve pass: Add to Home Screen / offline on a real iPhone; pwa-check was not first run against the unfixed build. (The 320×568 moon clip and laptop empty band were fixed 10-28.)
+
+- Wave 3: no full table game was played headlessly with a Minion or Tanner card in hand (engine tests and bot self-play cover the rules; the UI lines were checked as code). Online with the new roles only through the shared engine. Videos open YouTube in a new tab; not checked on a real iPhone. Computer Speed not felt on a real phone.
 
 ## Authorized next steps
 - None pending from Tim. Possible: Sheriff and extra roles (parked in ideas.md #16).
@@ -147,4 +154,4 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 - ~~Fake-claim-rate slider~~: another knob; the weight is explained behind the ?.
 - ~~Live "village win chance from here"~~: too slow on a phone, shaky to explain.
 - ~~Seat-position heatmap~~: no seating in the app.
-- Parked: Sheriff, Cupid, Thief and other extra roles; UW tie variants (see rules-check "Not built").
+- Parked: Sheriff, Cupid, Thief and other extra roles (Lycan, Minion, Tanner built 10-28); UW tie variants (see rules-check "Not built").
