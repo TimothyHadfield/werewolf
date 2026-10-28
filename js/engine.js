@@ -17,9 +17,13 @@
 (function (root) {
   "use strict";
 
-  const ROLE_KEYS = ["wolf", "seer", "doctor", "bodyguard", "witch", "hunter", "mason", "prince", "villager"];
-  const NIGHT_ORDER = ["mason", "seer", "doctor", "bodyguard", "wolf", "witch"];
-  const TEAM = { wolf: "wolves", seer: "village", doctor: "village", bodyguard: "village", witch: "village", hunter: "village", mason: "village", prince: "village", villager: "village" };
+  const ROLE_KEYS = ["wolf", "seer", "doctor", "bodyguard", "witch", "hunter", "mason", "prince", "lycan", "minion", "tanner", "villager"];
+  const NIGHT_ORDER = ["mason", "minion", "seer", "doctor", "bodyguard", "wolf", "witch"];
+  // The Tanner plays for nobody: they win if they die (the game goes on).
+  const TEAM = { wolf: "wolves", seer: "village", doctor: "village", bodyguard: "village", witch: "village", hunter: "village", mason: "village", prince: "village", lycan: "village", minion: "wolves", tanner: "tanner", villager: "village" };
+  // What a Seer sees: the Lycan looks like a wolf, the Minion like a villager (UW rulebook).
+  const seenAsWolf = (role) => role === "wolf" || role === "lycan";
+  const seenRole = (role) => role === "lycan" ? "wolf" : role === "minion" ? "villager" : role;
 
   const DEFAULT_OPTS = {
     firstNightKill: false, // wolves kill on night 1 (off = they only meet)
@@ -47,7 +51,7 @@
     return Math.max(1, Math.round(n / 3)); // Mafia: about a third
   }
   // Ultimate Werewolf's printed balance points (Doctor from the German Healer card).
-  const UW_POINTS = { wolf: -6, seer: 7, doctor: 3, bodyguard: 3, witch: 4, hunter: 3, mason: 2, prince: 3, villager: 1 };
+  const UW_POINTS = { wolf: -6, seer: 7, doctor: 3, bodyguard: 3, witch: 4, hunter: 3, mason: 2, prince: 3, lycan: -1, minion: -6, tanner: 1, villager: 1 };
   function uwPoints(setup) { return ROLE_KEYS.reduce((s, k) => s + (setup[k] || 0) * UW_POINTS[k], 0); }
 
   const THEMES = {
@@ -55,12 +59,14 @@
       wolf: ["Werewolf", "Werewolves"], seer: ["Seer", "Seers"], doctor: ["Doctor", "Doctors"],
       bodyguard: ["Bodyguard", "Bodyguards"], witch: ["Witch", "Witches"], hunter: ["Hunter", "Hunters"],
       mason: ["Mason", "Masons"], prince: ["Prince", "Princes"],
+      lycan: ["Lycan", "Lycans"], minion: ["Minion", "Minions"], tanner: ["Tanner", "Tanners"],
       villager: ["Villager", "Villagers"], village: "Village", wolves: "Werewolves", title: "Werewolf",
     },
     mafia: {
       wolf: ["Mafia", "Mafia"], seer: ["Detective", "Detectives"], doctor: ["Doctor", "Doctors"],
       bodyguard: ["Bodyguard", "Bodyguards"], witch: ["Witch", "Witches"], hunter: ["Hunter", "Hunters"],
       mason: ["Mason", "Masons"], prince: ["Prince", "Princes"],
+      lycan: ["Lycan", "Lycans"], minion: ["Minion", "Minions"], tanner: ["Tanner", "Tanners"],
       villager: ["Citizen", "Citizens"], village: "Town", wolves: "Mafia", title: "Mafia",
     },
   };
@@ -74,6 +80,9 @@
     hunter: "When you die, you shoot one player and take them with you.",
     mason: "On the first night the Masons wake and see each other. No other power.",
     prince: "If the table votes you out, your card is shown and you stay in.",
+    lycan: "You are on the village's side, but the Seer sees you as a wolf. No night power.",
+    minion: "You play for the wolves and know who they are; they don't know you. The Seer sees you as a villager.",
+    tanner: "You hate your job. You win if you die: voted out, killed at night or shot. The game goes on without you.",
     villager: "No night power. Find the wolves by talking and vote them out.",
   };
 
@@ -172,12 +181,12 @@
   // Every role in the setup is called at night, dead or alive, so the
   // narration never tells the table which roles are gone.
   // Masons only meet on night 1, and only at a real table (seat games show them each other on screen).
-  function nightSteps(g) { return NIGHT_ORDER.filter((r) => (g.setup[r] || 0) > 0 && (r !== "mason" || (g.nightNo === 1 && g.mode !== "seats" && g.setup.mason > 1))); }
+  function nightSteps(g) { return NIGHT_ORDER.filter((r) => (g.setup[r] || 0) > 0 && (r !== "mason" || (g.nightNo === 1 && g.mode !== "seats" && g.setup.mason > 1)) && (r !== "minion" || (g.nightNo === 1 && g.mode !== "seats"))); }
   function currentStep(g) { return g.night ? g.night.steps[g.night.i] || null : null; }
   // A step with nobody to act (role dead, or wolves' meet-only first night).
   function stepIsIdle(g, step) {
     if (step === "wolf") return !aliveRole(g, "wolf") || (g.nightNo === 1 && !g.opts.firstNightKill);
-    if (step === "mason") return true; // they only open their eyes and see each other
+    if (step === "mason" || step === "minion") return true; // they only open their eyes and look
     return !aliveRole(g, step);
   }
 
@@ -235,6 +244,9 @@
     p.alive = false;
     if (g.opts.reveal) p.revealed = true;
     if (p.role === "hunter") g.pendingHunters.push(id);
+    // The Tanner wins the moment they die, by any cause; the game goes on and the
+    // other teams' goals don't change (UW Ultimate Edition rulebook).
+    if (p.role === "tanner") g.tannerWon = true;
     return true;
   }
 
@@ -366,7 +378,7 @@
         if (step === "seer") {
           const t = g.players[a.target];
           const actor = actorOf(g, "seer");
-          g.seerLog.push({ n: g.nightNo, by: actor.id, target: a.target, wolf: t.role === "wolf", role: g.opts.seerSees === "role" ? t.role : null });
+          g.seerLog.push({ n: g.nightNo, by: actor.id, target: a.target, wolf: seenAsWolf(t.role), role: g.opts.seerSees === "role" ? seenRole(t.role) : null });
           if (!seats) return; // table mode: the Seer reads the answer, then taps Done
           return;
         }
@@ -520,9 +532,10 @@
     const over = !!g.winner;
     const wolfView = me && me.role === "wolf";
     const masonView = me && me.role === "mason";
+    const minionView = me && me.role === "minion";
     v.players.forEach((p) => {
       const own = me && p.id === me.id;
-      const see = over || p.revealed || own || (wolfView && p.role === "wolf") || (masonView && p.role === "mason");
+      const see = over || p.revealed || own || ((wolfView || minionView) && p.role === "wolf") || (masonView && p.role === "mason");
       if (!see) p.role = null;
     });
     if (!over) {
@@ -576,6 +589,12 @@
     const wolvesLeft = (setup.wolf || 0) - knownWolves.length;
     const fixedSeer = ids.find((id) => known[id] === "seer");
     const seerInPool = (setup.seer || 0) > 0 && fixedSeer == null;
+    // The Lycan (at most one) looks like a wolf to the Seer, so a true Seer claim
+    // "T is a wolf" means T is a wolf OR the Lycan. Unknown Lycan: summed over its seat.
+    const hasLycan = (setup.lycan || 0) > 0;
+    const fixedLycan = ids.find((id) => known[id] === "lycan");
+    const lycanInPool = hasLycan && fixedLycan == null;
+    const lycanFixed = fixedLycan == null ? -1 : fixedLycan;
 
     const tally = {}; ids.forEach((id) => { tally[id] = 0; });
     let total = 0;
@@ -593,21 +612,37 @@
     }
     if (wolvesLeft < 0 || wolvesLeft > wolfPool.length) return { odds: fallback(), total: 0, contradiction: true };
 
-    function weightFor(seer) {
+    function weightFor(seer, lycan) {
       let w = 1;
       for (let i = 0; i < claims.length; i++) {
         const c = claims[i];
-        if (seer === c.by) { if ((isW[c.target] === 1) !== c.wolf) return 0; }
+        if (seer === c.by) { if ((isW[c.target] === 1 || c.target === lycan) !== c.wolf) return 0; }
         else if (isW[c.by]) w *= weights.wolf;
         else w *= weights.other;
       }
       return w;
     }
+    // Sum over the Lycan's possible seats (an unknown non-wolf seat other than the Seer's).
+    // Only the targets of the Seer's own claims change the weight, so the other seats share one value.
+    function seerWeight(seer) {
+      if (!lycanInPool) return weightFor(seer, lycanFixed);
+      let m = 0;
+      for (let i = 0; i < wolfPool.length; i++) { const id = wolfPool[i]; if (!isW[id] && id !== seer) m++; }
+      if (!m) return 0;
+      const ts = [];
+      for (let i = 0; i < claims.length; i++) {
+        const t = claims[i].target;
+        if (claims[i].by === seer && !known[t] && !isW[t] && t !== seer && ts.indexOf(t) < 0) ts.push(t);
+      }
+      let sum = (m - ts.length) * weightFor(seer, -1);
+      for (let i = 0; i < ts.length; i++) sum += weightFor(seer, ts[i]);
+      return sum;
+    }
     function visit() {
       let sum = 0;
       if (seerInPool) {
-        for (let i = 0; i < pool.length; i++) { const s = pool[i]; if (!isW[s]) sum += weightFor(s); }
-      } else sum = weightFor(fixedSeer == null ? -1 : fixedSeer);
+        for (let i = 0; i < pool.length; i++) { const s = pool[i]; if (!isW[s]) sum += seerWeight(s); }
+      } else sum = seerWeight(fixedSeer == null ? -1 : fixedSeer);
       if (sum <= 0) return;
       total += sum;
       for (let i = 0; i < ids.length; i++) if (isW[ids[i]]) tally[ids[i]] += sum;
@@ -636,14 +671,20 @@
       if (v && v.players[p.id].role) known = v.players[p.id].role;
       return { id: p.id, known };
     });
+    const claims = g.claims.map((c) => ({ by: c.by, target: c.target, wolf: c.wolf }));
     if (me && me.role === "seer") {
+      const lycan = (g.setup.lycan || 0) > 0;
       g.seerLog.forEach((r) => {
         if (r.by !== me.id) return;
         const cur = players[r.target];
-        if (!cur.known) cur.known = r.wolf ? "wolf" : (r.role || "notwolf");
+        if (cur.known) return;
+        // With a Lycan in the game a "wolf" answer is not proof: it goes in as the Seer's own true claim.
+        if (r.wolf && lycan) claims.push({ by: me.id, target: r.target, wolf: true });
+        else if (r.wolf) cur.known = "wolf";
+        else cur.known = lycan ? "notwolf" : (r.role || "notwolf");
       });
     }
-    return { players, setup: g.setup, claims: g.claims.map((c) => ({ by: c.by, target: c.target, wolf: c.wolf })) };
+    return { players, setup: g.setup, claims };
   }
 
   // ------------------------------------------------------------------ bots
@@ -664,15 +705,16 @@
   function knowledge(g, seat) {
     const me = g.players[seat];
     const wolves = new Set(), cleared = new Set([seat]);
-    if (me.role === "wolf") g.players.forEach((p) => { if (p.role === "wolf") wolves.add(p.id); });
+    const wolfSide = me.role === "wolf" || me.role === "minion";
+    if (wolfSide) g.players.forEach((p) => { if (p.role === "wolf") wolves.add(p.id); });
     if (me.role === "mason") g.players.forEach((p) => { if (p.role === "mason") cleared.add(p.id); });
     if (me.role === "seer") g.seerLog.forEach((r) => { if (r.by === seat) (r.wolf ? wolves : cleared).add(r.target); });
     g.players.forEach((p) => { if (p.revealed) (p.role === "wolf" ? wolves : cleared).add(p.id); });
     const bs = believedSeer(g);
-    if (bs != null && !(me.role === "wolf" && wolves.has(bs))) {
+    if (bs != null && !(wolfSide && wolves.has(bs))) {
       cleared.add(bs);
       g.claims.forEach((c) => { if (c.by === bs) (c.wolf ? wolves : cleared).add(c.target); });
-      if (me.role === "wolf") { // wolves know the truth about their own team
+      if (wolfSide) { // wolves (and their Minion) know the truth about the wolves
         g.players.forEach((p) => { if (p.role === "wolf") wolves.add(p.id); else if (wolves.has(p.id)) wolves.delete(p.id); });
       }
     }
@@ -839,6 +881,22 @@
           if (next) return { type: "claim", seat, target: next.target, wolf: next.wolf };
         }
       }
+      if (level !== "easy" && (me.role === "minion" || me.role === "tanner") && !g.claims.some((c) => c.by === seat)) {
+        // The Minion fakes being the Seer to shield the wolves: it answers a Seer who names a wolf
+        // (taking the heat off its pack), or opens with a false accusation of a villager.
+        // The Tanner fakes a Seer claim to look like a lying wolf and get voted out.
+        // Normal does it now and then, Smart more often (decided once per seat and day from the seed).
+        const rate = me.role === "minion" ? (level === "smart" ? 60 : 25) : (level === "smart" ? 50 : 20);
+        if (me.role === "minion" && level === "smart") {
+          const accuse = g.claims.find((c) => c.wolf && g.players[c.target].role === "wolf" && g.players[c.by].alive && g.players[c.by].role !== "wolf");
+          if (accuse) return { type: "claim", seat, target: accuse.by, wolf: true };
+        }
+        if (g.day <= 2 && hash3(g.seed, g.day * 11 + 5, seat) % 100 < rate) {
+          // (the Minion knows the wolves and spares them; the Tanner knows nobody's card)
+          const pool = others.filter((id) => !g.players[id].revealed && (me.role !== "minion" || g.players[id].role !== "wolf"));
+          if (pool.length) return { type: "claim", seat, target: pool[hash3(g.seed, g.day, seat + 70) % pool.length], wolf: true };
+        }
+      }
       if (level === "smart" && me.role === "wolf") {
         // Counter-claim: a Seer claim naming a wolf gets answered once by the lowest living wolf.
         const ws = livingWolves(g).map((p) => p.id).sort((a, b) => a - b);
@@ -859,7 +917,7 @@
       // the seat's own knowledge (its card, its Seer checks) still overrides.
       const odds = level === "smart" ? smartPublic(g) : null;
       const susp = (id) => K.wolves.has(id) ? 2 : K.cleared.has(id) ? -1 : odds ? odds[id] || 0 : 0;
-      if (me.role === "wolf") {
+      if (me.role === "wolf" || me.role === "minion") {
         // Join the village's likely target unless it's a wolf; then push a villager.
         const P = publicKnowledge(g);
         const pubOdds = level === "smart" ? smartPublic(g) : null;
@@ -888,7 +946,8 @@
     const names = [];
     for (let i = 0; i < n; i++) names.push("P" + i);
     const g = newGame(names, setup, { rng, mode: "seats", opts: o.opts, kinds: names.map(() => "bot") });
-    g.players.forEach((p) => { p.level = p.role === "wolf" ? (o.wolfLevel || "normal") : (o.villageLevel || "normal"); });
+    g.players.forEach((p) => { p.level = TEAM[p.role] === "wolves" ? (o.wolfLevel || "normal") : (o.villageLevel || "normal"); });
+    if (o.levels) g.players.forEach((p) => { if (o.levels[p.role]) p.level = o.levels[p.role]; });
     let guard = 0;
     while (!g.winner && guard++ < 5000) {
       const h = hostAction(g);
@@ -897,7 +956,7 @@
       if (!act) break;
       applyMut(g, act);
     }
-    return g.winner;
+    return o.full ? g : g.winner;
   }
 
   // Of the seats being waited on, the computer move to make next. By day, claims
