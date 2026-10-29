@@ -93,6 +93,7 @@ Full list with evidence: `scratchpad/edge/werewolf/scenarios.md` (manager sessio
 | Game over | celebrate `win` (table phone: winners' colours) or your own `win`/`lose` (seat games) | confetti in the winning side's colours |
 
 ## Traps
+- **Kits re-copied 2026-10-28 (sweep, 215ad5d):** game-coach 1.2.0, offer `place: "auto", avoid: ["[data-act=startGame]", "[data-act=setupNext]"]` (it used to cover the phone's "Roles →" button; now 0 overlap at 393x659/320x568/659x393) and game-pwa 1.4.0 (pwa-check 18/18). Headless WebKit on a local python server logs "Load failed / engine.js access control" when a test reloads early; old build too, not on Pages.
 - **Kits re-copied 2026-10-27 (kitfix):** game-coach 1.1.0 wraps the rules tabs itself (the styles.css `.coach-rules .coach-rules-nav` override is now redundant but harmless) and keeps a note beside a tall target readable; game-pwa 1.3.0 (`data-extra`). Copies stay byte-identical to `../_coach` / `../_pwa`.
 - **online.js cache stamp (2026-10-27):** `js/app.js` imports `./online.js?v=a3d0418b`, the `_online` content stamp. After a re-copy: put the new stamp from `node ../_online/tools/stamp.mjs` there, run `node tools/stamp.js` (bumps every `?v=` in index.html), then `node ../_online/tools/stamp.mjs --check .` must say OK.
 - `js/online.js` is a shared file: never edit it here.

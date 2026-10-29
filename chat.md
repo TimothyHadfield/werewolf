@@ -1,5 +1,8 @@
 # Werewolf / Mafia — session log
 
+## 2026-10-28 — kit sweep (builder b4)
+- Built 215ad5d: game-coach 1.2.0 (offer place auto, avoids Roles →/Deal) + game-pwa 1.4.0. Verified: tests/run.js 72/72, pwa-check 18/18, offer overlap with the setup button 18000 → 0 px² (3 sizes), Settings at 320 px 318/318, live-check LIVE.
+
 ## 2026-10-28 — wave 3 (builder agent, from the manager's brief)
 - **Asked** (Tim via manager): "go through each project adding features or changing things that you think should be changed … links to youtube videos on strategies/how to play/variations … adding variations … making the layout better on iphone … Just make the games better."
 - **Built**: Lycan, Minion, Tanner (engine, odds, bots, art emblems, narration, hints, game-over lines, stats); `tests/roles3.test.js` (15); `tools/measure-roles.js` + `js/roles-data.js` + Setup lab table; Rules sheet Videos tab (4 oEmbed-checked videos); Settings → Computers → Speed; narrator rate on every line; phone home scrolls (no clipped moon at 320×568); laptop Deal button under the role list.
