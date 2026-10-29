@@ -1449,7 +1449,7 @@
   function offerTutorial() {
     const C = CO();
     if (!C || !tour || C.offered(WC.ID) || ui.view !== "setup" || ui.setupMode !== "cpu" || (S.cpu && !S.cpu.winner)) return;
-    C.offer({ id: WC.ID, title: "New to Werewolf?", text: "Play one guided game as the Seer against Easy computers.", yes: "Teach me", no: "No thanks", onYes: startTutorial });
+    C.offer({ id: WC.ID, title: "New to Werewolf?", text: "Play one guided game as the Seer against Easy computers.", yes: "Teach me", no: "No thanks", onYes: startTutorial, place: "auto", avoid: ["[data-act=startGame]", "[data-act=setupNext]"] });
   }
 
   // ------------------------------------------------------------ events
