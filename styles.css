@@ -577,3 +577,8 @@ input[type=text]:focus { outline: none; border-color: var(--accent); }
 @media (max-height: 500px) { .setup-preview { display: none; } }
 /* The coach kit's rules tabs wrap instead of scrolling sideways on phones (same fix as King of Tokyo). */
 .coach-rules .coach-rules-nav { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; }
+
+/* finale: the winners' cards glow while the ending sinks in (2026-11-25) */
+.ww-seat.won .ww-card { box-shadow: 0 0 0 2px #f5d76e, 0 0 18px rgba(245,215,110,.75); animation: wwWon 1.1s ease-in-out infinite; }
+@keyframes wwWon { 50% { box-shadow: 0 0 0 3px #f5d76e, 0 0 26px rgba(245,215,110,.95); } }
+@media (prefers-reduced-motion: reduce) { .ww-seat.won .ww-card { animation: none; } }

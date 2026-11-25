@@ -75,6 +75,7 @@
   };
   // ?fast in the URL speeds every pause up 20x (headless checks only).
   const FAST = /[?&]fast(?:[=&]|$)/.test(location.search) ? 0.05 : 1;
+  const finale = { live: null, seen: new Set(), until: 0, timer: null }; // see inFinale()
   // Optional sounds, celebrations and animations (js/fx.js + js/game-fx.js), switched in Settings.
   const FX = window.FX || null;
   if (FX) { FX.init({ game: "werewolf", accent: "#6ea8fe" }); if (window.WWFX) window.WWFX.init(FX, { scale: FAST }); }
@@ -378,6 +379,7 @@
     const g = G();
     if (!g) { ui.view = "home"; return renderHome(); }
     if (g.winner) return renderOver(g);
+    finale.live = g.seed; // this game was seen in play, so its ending gets the finale
     if (ui.mode === "table" && g.phase === "reveal") return renderDeal(g);
     if (ui.mode === "table" && g.phase === "start") return renderReady(g);
     if (g.phase === "night") return SEATED() ? renderCpuNight(g) : renderNight(g);
@@ -504,7 +506,7 @@
         odd = '<span class="odds" style="color:' + wolfColor(o) + '">' + pct(o) + '</span><span class="bar"><i style="width:' + Math.round(o * 100) + "%;background:" + wolfColor(o) + '"></i></span>';
       }
       const j = window.TABLE ? window.TABLE.jitter(g.seed + ":seat", p.id, { rot: 5, off: 0 }) : { r: 0 };
-      return '<button class="pbtn ww-seat' + (opts.sel === p.id ? " sel" : "") + (p.alive ? "" : " dead") + (odd ? " has-odds" : "") + (me ? " me" : "") +
+      return '<button class="pbtn ww-seat' + (opts.sel === p.id ? " sel" : "") + (p.alive ? "" : " dead") + (odd ? " has-odds" : "") + (me ? " me" : "") + (opts.cls ? opts.cls(p) : "") +
         '" data-act="' + (opts.act || "sel") + '" data-id="' + p.id + '" data-pos="' + pos + '" style="--r:' + j.r + 'deg" ' + (can ? "" : "disabled") + ">" +
         seatCard(g, p, faceUp) + '<span class="pn tbl-plate">' + avatarFor(p.name, me && SEATED() && p.kind !== "bot") + esc(p.name) + "</span>" + (sub ? '<span class="ps">' + sub + "</span>" : "") + odd + "</button>";
     }).join("");
@@ -1082,8 +1084,26 @@
   function roleTag(g, id) { const p = g.players[id]; return p.revealed || g.winner ? ' <span class="muted">(' + esc(RN(p.role)) + ")</span>" : ""; }
 
   // ---- game over
+  // The ending is a moment, not a cut (2026-11-25, Catan lessons): for a few seconds the table
+  // shows who won and what decided it, the winners' cards glowing, before the vote record and buttons.
+  function inFinale(g) {
+    if (finale.live === g.seed && !finale.seen.has(g.seed)) {
+      finale.seen.add(g.seed);
+      const ms = (S.settings.pace === "fast" ? 2500 : 5000) * FAST;
+      finale.until = Date.now() + ms;
+      clearTimeout(finale.timer); finale.timer = setTimeout(() => { if (ui.view === "game") render(); }, ms + 20);
+    }
+    return finale.seen.has(g.seed) && Date.now() < finale.until;
+  }
   function renderOver(g) {
     const win = g.winner;
+    if (inFinale(g)) {
+      const news = latestNews(g);
+      const winTeam = win === "village" ? "village" : "wolves";
+      const head = '<div class="over-head ' + win + '">' + (win === "village" ? IC.sun.replace('class="sun"', 'width="56" height="56"') : moonArt()) + "<h2>" + esc(win === "village" ? TH().village : TH().wolves) + ' win</h2><p class="muted">' + esc(news ? news.title : "") + "</p></div>";
+      const t = playScreen(ring(g, [], { allUp: true, me: SEATED() ? ME() : undefined, cls: (p) => (W.TEAM[p.role] === winTeam ? " won" : ""), sub: (p) => esc(RN(p.role)) + (p.alive || g.players.length > 12 ? "" : " · dead") }, head), "", "", "over finale");
+      return gameShell(g, "Game over", "", t);
+    }
     // Every card round the table is turned face up, like the end of a real game.
     const myRole = SEATED() ? g.players[ME()].role : null;
     const iWon = myRole && (W.TEAM[myRole] === "tanner" ? !!g.tannerWon : W.TEAM[myRole] === (win === "village" ? "village" : "wolves"));
