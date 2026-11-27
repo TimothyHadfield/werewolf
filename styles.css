@@ -582,3 +582,19 @@ input[type=text]:focus { outline: none; border-color: var(--accent); }
 .ww-seat.won .ww-card { box-shadow: 0 0 0 2px #f5d76e, 0 0 18px rgba(245,215,110,.75); animation: wwWon 1.1s ease-in-out infinite; }
 @keyframes wwWon { 50% { box-shadow: 0 0 0 3px #f5d76e, 0 0 26px rgba(245,215,110,.95); } }
 @media (prefers-reduced-motion: reduce) { .ww-seat.won .ww-card { animation: none; } }
+
+/* fit pass (2026-11-27): on a crowded phone table (13-20 seats) the name plate is only ~45 px wide and
+   the seat picture took 17 px of it, leaving 1-2 letters ("P…"). There the picture steps aside for the name. */
+/* A plate may also reach past its seat (wider than the card) far enough to show about 7 letters;
+   layoutTables() counts that overhang, so the cards shrink a little to make room instead of the names. */
+.ww-table .ww-seat .pn.tbl-plate { max-width: max(100%, calc(var(--nch, 7.5) * 1ch + 1.15em + 13px)); }
+@media (max-width: 899px), (max-height: 500px) {
+  .ww-table.s-s .ww-seat .tbl-plate .pav { display: none; }
+  .ww-table.s-s .ww-seat .pn.tbl-plate { max-width: max(100%, calc(var(--nch, 7.5) * 1ch + 10px)); }
+}
+.ww-table.names-full .ww-seat .pn.tbl-plate { max-width: none; }
+.ww-table.names-tight .ww-seat .pn.tbl-plate.tbl-plate { max-width: 100%; }
+/* the action button's long name ("Vote out Christopherson") wraps instead of being cut at both ends */
+.day .day-foot .btn { overflow-wrap: anywhere; padding-left: 6px; padding-right: 6px; }
+@media (max-width: 899px) and (orientation: portrait) { .day .day-foot .btn.warm { flex-grow: 1.5; } }
+@media (max-width: 360px) and (orientation: portrait) { .day .day-foot .btn.warm { flex-grow: 2; } }

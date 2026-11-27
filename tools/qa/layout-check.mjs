@@ -9,16 +9,19 @@ const URL = process.argv[2] || "http://127.0.0.1:8000/?fast";
 const ENGINE = process.argv[3] || "webkit";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const phone = (w, h) => ({ viewport: { width: w, height: h }, isMobile: ENGINE !== "firefox", hasTouch: true, deviceScaleFactor: 1 });
-// [tag, context, players, rules: min card width px, min table height px]
+// [tag, context, players, rules: min card width px, min table height px, min letters of each name on its plate]
+// Fit pass 2026-11-27: every name is 11-14 letters (the crowded worst case; cut14 caps names at 14),
+// and each plate must show at least `name` of them (or the whole name), never a 1-2 letter stub.
 const CASES = [
-  ["393 x20", phone(393, 659), 20, { card: 24, tableH: 400 }],
-  ["320 x20", phone(320, 568), 20, { card: 18, tableH: 330 }],
-  ["landscape x20", phone(659, 393), 20, { card: 20, tableH: 270 }],
-  ["landscape x8", phone(659, 393), 8, { card: 30, tableH: 270 }],
-  ["1280 x20", { viewport: { width: 1280, height: 800 } }, 20, { card: 50, tableH: 600 }],
-  ["1280 x8", { viewport: { width: 1280, height: 800 } }, 8, { card: 80, tableH: 600 }],
+  ["393 x20", phone(393, 659), 20, { card: 22, tableH: 400, name: 6 }],
+  ["393 x8", phone(393, 659), 8, { card: 40, tableH: 400, name: 4 }],
+  ["320 x20", phone(320, 568), 20, { card: 14, tableH: 330, name: 4 }],
+  ["landscape x20", phone(659, 393), 20, { card: 18, tableH: 270, name: 5 }],
+  ["landscape x8", phone(659, 393), 8, { card: 28, tableH: 270, name: 7 }],
+  ["1280 x20", { viewport: { width: 1280, height: 800 } }, 20, { card: 48, tableH: 600, name: 7 }],
+  ["1280 x8", { viewport: { width: 1280, height: 800 } }, 8, { card: 80, tableH: 600, name: 14 }],
 ];
-const NAMES = ["Alexander", "Mackenzie", "Sam", "Jo", "Christopher", "Bea", "Isabella", "Tim", "Rosalind", "Max", "Evangeline", "Ola", "Benjamin", "Kai", "Penelope", "Liv", "Theodore", "Ann", "Gwendolyn", "Ed"];
+const NAMES = ["Christopherson", "Alexandriana", "Maximilianus", "Evangelinette", "Bartholomewsy", "Gwendolynne", "Rosalindabel", "Theodoricus", "Penelopeanne", "Montgomeryjr", "Isabellarose", "Benjaminsson", "Jacquelineva", "Fredericksen", "Sebastianito", "Anastasiaree", "Wilhelminaby", "Konstantinos", "Seraphinaria", "Nathanielsen"];
 const browser = await pw[ENGINE].launch();
 let fails = 0;
 const check = (tag, ok, msg) => { if (!ok) { fails++; console.log("FAIL " + tag + ": " + msg); } };
@@ -65,10 +68,27 @@ for (const [tag, opts, N, rule] of CASES) {
     }
     const cards = seats.filter((s) => !s.classList.contains("me")).map((s) => r(s.querySelector(".ww-card")));
     const c = t.querySelector(".ww-center");
-    return { n: seats.length, card: Math.round(Math.min(...cards.map((b) => b.width))), aspect: Math.min(...seats.map((s) => { const cs = getComputedStyle(s.querySelector(".ww-card")); return parseFloat(cs.height) / parseFloat(cs.width); })), tableH: Math.round(tr.height), plate: fs(".tbl-plate"), odds: fs(".odds"), ov, off, overflowX: document.documentElement.scrollWidth > innerWidth + 1, centerScroll: c ? c.scrollHeight > c.clientHeight + 2 : false };
+    // Letters of each name drawn inside its plate (the rest is cut off behind the "…").
+    const shown = vis(".tbl-plate").map((e) => {
+      const pr = r(e); let n = 0, len = 0;
+      const tw = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+      for (let tn; (tn = tw.nextNode());) for (let i = 0; i < tn.length; i++) {
+        if (!tn.data[i].trim()) continue; len++;
+        const rg = document.createRange(); rg.setStart(tn, i); rg.setEnd(tn, i + 1); const b = rg.getBoundingClientRect();
+        if (b.width && b.right <= pr.right - 1 && b.left >= pr.left) n++;
+      }
+      return { n, len };
+    });
+    // The footer buttons ("Vote out Christopherson"): the label is never cut.
+    const footCut = [...document.querySelectorAll(".day-foot .btn")].filter((b) => b.offsetParent && b.scrollWidth > b.clientWidth + 1).map((b) => b.textContent.trim());
+    return { n: seats.length, card: Math.round(Math.min(...cards.map((b) => b.width))), aspect: Math.min(...seats.map((s) => { const cs = getComputedStyle(s.querySelector(".ww-card")); return parseFloat(cs.height) / parseFloat(cs.width); })), tableH: Math.round(tr.height), plate: fs(".tbl-plate"), odds: fs(".odds"), ov, off, overflowX: document.documentElement.scrollWidth > innerWidth + 1, centerScroll: c ? c.scrollHeight > c.clientHeight + 2 : false, nameShort: shown.filter((s) => s.n < s.len).length, nameMin: Math.min(...shown.map((s) => s.n)), names: shown, footCut };
   });
   const verify = (label, m) => {
+    const names = m.names; delete m.names;
     console.log(label.padEnd(20), JSON.stringify(m));
+    const bad = names.filter((s) => s.n < Math.min(s.len, rule.name));
+    check(label, !bad.length, bad.length + " name plates show too few letters (" + bad.map((s) => s.n + "/" + s.len).join(" ") + ", want " + rule.name + " or the whole name)");
+    check(label, !m.footCut.length, "button label cut: " + m.footCut.join(", "));
     check(label, m.n === N, "seats " + m.n);
     check(label, m.card >= rule.card, "card " + m.card + " px < " + rule.card);
     check(label, m.tableH >= rule.tableH, "table height " + m.tableH + " px < " + rule.tableH);

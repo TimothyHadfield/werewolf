@@ -1,5 +1,12 @@
 # Werewolf / Mafia — session log
 
+## 2026-11-27 — fit pass (builder agent, from the manager's brief)
+- **Asked** (Tim via manager): "spacing, sizing, and making sure the user can actually see the full screen and everything … go through every game … and make sure that they all are good in that aspect specifically" (full quote in progress.md).
+- **Found**: with 20 long names (11-14 letters) the name plates showed 1 letter at 320 px ("P…"), 2-3 sideways, 4-5 at 393 px, 7-9 on laptop; the 320 px "Vote out Christopherson" label was cut at both ends. Table size, odds and fonts were already fine (layout-check passed).
+- **Built** (`js/app.js` fitTable/setNames, `styles.css`): plates may reach past the card to show about 7 letters; on a roomy table `fitTable()` tries whole names (≤10% card cost) or ~10 letters (≤20%); crowded phone tables hide the seat picture on the plate (it took 17 of ~43 px); fallback to card-width plates if nothing fits. Footer: the vote/shoot button is 1.5× wide on phones (2× ≤360 px) and wraps long names. `tools/qa/layout-check.mjs` now uses 11-14 letter names, adds 393×8, a letters-shown rule and a footer-label rule.
+- **Verified**: new layout-check 10 failures on the old build, 0 on the new (WebKit); `node tests/run.js` 72 passed; before/after shots at 393, 320×568, 659×393, 1280, 1440 (manager scratchpad `ww-fit/before2|after/`), no overflow, no console errors.
+- **Open**: see NOT verified.
+
 ## 2026-10-28 — kit sweep (builder b4)
 - Built 215ad5d: game-coach 1.2.0 (offer place auto, avoids Roles →/Deal) + game-pwa 1.4.0. Verified: tests/run.js 72/72, pwa-check 18/18, offer overlap with the setup button 18000 → 0 px² (3 sizes), Settings at 320 px 318/318, live-check LIVE.
 

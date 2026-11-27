@@ -548,7 +548,7 @@
     // Same seats, about the same space (a footer button that wrapped to two lines): keep the
     // card size steady, so nothing resizes under the finger.
     const last = fitMemo.get(sig);
-    if (last && Math.abs(last.H - H) < 48 && applyFit(t, last.cls, last.k, last.bySize, 0)) return;
+    if (last && Math.abs(last.H - H) < 48) { setNames(t, last.nch); if (applyFit(t, last.cls, last.k, last.bySize, 0)) return; }
     const start = Math.max(0, SIZES.indexOf(t.dataset.size || "s-l"));
     // Biggest card for one way of treating the middle. A smaller card style (markers laid on the
     // card) only wins when the bigger style's card is still small (a phone) and it is clearly bigger.
@@ -570,9 +570,35 @@
     };
     // First keep all the news in the middle in view. If that leaves small cards, letting a long
     // list scroll in a roomy middle may give clearly bigger ones. Last, size the seats on their own.
-    let best = tierBest(2);
-    if (!best || best.cw < 40) { const b1 = tierBest(1); if (b1 && (!best || b1.cw > best.cw * 1.3)) best = b1; }
-    if (!best) best = tierBest(0);
+    const pickBest = () => {
+      let b = tierBest(2);
+      if (!b || b.cw < 40) { const b1 = tierBest(1); if (b1 && (!b || b1.cw > b.cw * 1.3)) b = b1; }
+      return b || tierBest(0);
+    };
+    // Fit pass 2026-11-27: the plates show whole names when that costs the cards little (a roomy
+    // table), else about 10 letters, else about 7 (styles.css --nch), and the cards get the rest.
+    // The longer names keep the winning card style and only search the card size (cheap).
+    setNames(t, 7.5);
+    let best = pickBest();
+    // No room even for 7 letters (a tiny screen): the plates go back to the card's width.
+    if (!best) { setNames(t, -1); best = pickBest(); if (best) best.nch = -1; }
+    else {
+      best.nch = 7.5;
+      applyFit(t, best.cls, best.k, best.bySize, 0);
+      const cut = [...t.querySelectorAll(".ww-seat .tbl-plate")].some((e) => e.scrollWidth > e.clientWidth + 1);
+      for (const nch of cut ? [0, 10] : []) {
+        setNames(t, nch);
+        let lo = 0.7, hi = best.k, got = null;
+        if (applyFit(t, best.cls, lo, best.bySize, best.roomy)) {
+          got = lo;
+          for (let it = 0; it < 7; it++) { const mid = (lo + hi) / 2; if (applyFit(t, best.cls, mid, best.bySize, best.roomy)) { got = mid; lo = mid; } else hi = mid; }
+        }
+        const cw = fitBase(t, best.cls).cw * (got || 0);
+        // Whole names may cost the cards up to 10%, about 10 letters up to 20%.
+        if (got != null && cw >= best.cw * (nch ? 0.8 : 0.9)) { best = Object.assign({}, best, { k: got, cw, nch }); break; }
+      }
+    }
+    setNames(t, best ? best.nch : -1);
     if (!best) {
       // Nothing fits (a tiny screen): the smallest style at its smallest size, the least crowded way.
       const c = SIZES.length - 1;
@@ -582,8 +608,15 @@
       best.fallback = true;
     }
     applyFit(t, best.cls, best.k, best.bySize, 0);
-    if (!best.fallback) fitMemo.set(sig, { H, cls: best.cls, k: best.k, bySize: best.bySize });
+    if (!best.fallback) fitMemo.set(sig, { H, cls: best.cls, k: best.k, bySize: best.bySize, nch: best.nch });
     if (fitMemo.size > 60) fitMemo.delete(fitMemo.keys().next().value);
+  }
+  // How much of each name its plate may show: 0 = the whole name, -1 = only the card's width,
+  // else about that many letters.
+  function setNames(t, nch) {
+    t.classList.toggle("names-full", nch === 0);
+    t.classList.toggle("names-tight", nch === -1);
+    if (nch > 0) t.style.setProperty("--nch", String(nch)); else t.style.removeProperty("--nch");
   }
   // Base card / seat width and fonts of a style at this screen size (from the stylesheet).
   const baseMemo = new Map();
